@@ -736,10 +736,13 @@ async function startGmailScan(userEmail) {
   // Incremental: use last sync time if available
   var lastSync=LAST_SYNC[userEmail]||0;
   var afterTs=lastSync ? Math.floor(lastSync/1000) : 0;
-  // Strict query: from must look like billing AND subject must contain receipt keywords
-  var strictFrom = 'from:(billing OR invoice OR receipt OR payment OR subscription OR orders OR no-reply OR noreply OR חשבונית OR קבלה)';
-  var strictSubj = 'subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR order OR חשבונית OR קבלה OR תשלום OR חיוב)';
-  var query = strictFrom + ' ' + strictSubj;
+  // Strict query: BOTH from billing-like sender AND subject contains receipt keyword
+  // Deliberately exclude noreply (too broad) - rely on subject+from domain filtering
+  var strictFrom = 'from:(billing OR invoice OR receipt OR payment OR subscription OR orders OR חשבונית OR קבלה OR accounts OR finance OR חשבון)';
+  var strictSubj = 'subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR charged OR חשבונית OR קבלה OR תשלום OR חיוב OR הזמנה)';
+  // Exclude known noise directly in the query
+  var excludeQ = '-from:reddit.com -from:linkedin.com -from:github.com -from:facebook.com -from:twitter.com -from:instagram.com -from:quora.com -from:medium.com -from:youtube.com -from:tiktok.com';
+  var query = strictFrom + ' ' + strictSubj + ' ' + excludeQ;
   if (afterTs) query += ' after:' + afterTs;
   else query += ' newer_than:' + daysBack + 'd';
 
@@ -810,16 +813,38 @@ function isExpenseReceipt(msg) {
   var subj=(h.subject||'').toLowerCase();
   var from=(h.from||'').toLowerCase();
   var snip=(msg.snippet||'').toLowerCase();
-  var kwOk=['receipt','invoice','payment','billing','subscription','renewal','order','חשבונית','קבלה','תשלום','הזמנה','חיוב'];
-  if (!kwOk.some(function(k){return subj.includes(k)||snip.includes(k);})) return false;
-  var kwBad=['security alert','verification code','unsubscribe','newsletter','התראת אבטחה','קוד אימות','test message','webinar','conference',
-    'job alert','new job','your application','interview','you have a new message','digest','weekly','monthly update',
-    'invitation to join','has invited you','accepted your','commented on','mentioned you','replied to'];
-  if (kwBad.some(function(k){return subj.includes(k)||snip.includes(k);})) return false;
-  // Exclude known non-receipt senders
-  var badFrom=['reddit.com','linkedin.com','github.com','facebook.com','twitter.com','instagram.com',
-    'quora.com','medium.com','slack.com','notion.so','trello.com','asana.com'];
-  if (badFrom.some(function(d){return from.includes(d);})) return false;
+
+  // FIX 2a: Blocklist of known non-receipt domains - checked FIRST
+  var badDomains=['reddit.com','linkedin.com','github.com','facebook.com','twitter.com',
+    'instagram.com','quora.com','medium.com','slack.com','notion.so','trello.com',
+    'asana.com','youtube.com','tiktok.com','pinterest.com','snapchat.com',
+    'whatsapp.com','telegram.org','discord.com','twitch.tv'];
+  if (badDomains.some(function(d){return from.includes(d);})) return false;
+
+  // FIX 2b: Require keyword in SUBJECT (not just snippet) for stronger signal
+  var kwSubj=['receipt','invoice','payment','billing','subscription','renewal','charged',
+    'חשבונית','קבלה','תשלום','הזמנה','חיוב','חשבון'];
+  var subjMatch = kwSubj.some(function(k){return subj.includes(k);});
+
+  // Allow snippet match ONLY if from looks like a billing sender
+  var billingFrom=['billing','invoice','receipt','payment','subscription','accounts',
+    'finance','חשבונית','קבלה','חשבון','orders'];
+  var fromIsBilling = billingFrom.some(function(k){return from.includes(k);});
+
+  // Must match subject OR (snippet AND billing sender)
+  if (!subjMatch && !(snip && fromIsBilling && kwSubj.some(function(k){return snip.includes(k);}))) return false;
+
+  // FIX 2c: Expanded bad-subject keywords
+  var kwBad=['security alert','verification code','unsubscribe','newsletter',
+    'התראת אבטחה','קוד אימות','test message','webinar','conference',
+    'job alert','new job','your application','interview',
+    'you have a new message','digest','weekly update','monthly update',
+    'invitation to join','has invited you','accepted your',
+    'commented on','mentioned you','replied to','follow request',
+    'new follower','liked your','shared your','retweeted'];
+  if (kwBad.some(function(k){return subj.includes(k);})) return false;
+
+  // Filter outgoing invoices
   if (CFG.filterout) {
     var outgoing=['effectivesec.com','greeninvoice.co.il','shay.chen@','amir@effectivesec'];
     if (outgoing.some(function(k){return from.includes(k);})) return false;
@@ -828,15 +853,27 @@ function isExpenseReceipt(msg) {
 }
 
 function confidenceScore(vendor, subject, snippet, amount) {
-  var score=0;
-  var kwCount=['receipt','invoice','payment','billing','חשבונית','קבלה','תשלום'].filter(function(k){
-    return (subject+' '+snippet).toLowerCase().includes(k);
-  }).length;
-  score+=Math.min(kwCount*15,40);
-  if (amount&&amount!==' - ') score+=30;
-  var knownDomains=['amazon','google','microsoft','zoom','slack','github','adobe','dropbox','figma','atlassian','paypal','stripe','סלקום','פרטנר','hot','בזק','פז','סונול','דלק'];
-  if (knownDomains.some(function(d){return (vendor+' '+subject).toLowerCase().includes(d);})) score+=30;
-  return Math.min(score,100);
+  var score = 0;
+  var combined = (vendor + ' ' + subject + ' ' + snippet).toLowerCase();
+
+  // Keyword score (up to 40)
+  var receiptKw = ['receipt','invoice','payment','billing','subscription','charged','חשבונית','קבלה','תשלום','חיוב'];
+  var kwCount = receiptKw.filter(function(k){ return combined.includes(k); }).length;
+  score += Math.min(kwCount * 15, 40);
+
+  // Amount found (30 points)
+  if (amount && amount !== '-' && amount !== ' - ') score += 30;
+
+  // Known billing domain/vendor (30 points)
+  var knownVendors = ['amazon','aws','google','microsoft','zoom','adobe','dropbox','figma',
+    'atlassian','paypal','stripe','digitalocean','heroku','github copilot',
+    'סלקום','פרטנר','hot','בזק','פז','סונול','דלק','netflix','spotify','apple'];
+  if (knownVendors.some(function(d){ return combined.includes(d); })) score += 30;
+
+  // Hebrew invoice bonus (extra 10)
+  if (/חשבונית|קבלה|חיוב/.test(combined)) score += 10;
+
+  return Math.min(score, 100);
 }
 
 function parseGmailMessage(msg,userEmail) {
@@ -846,12 +883,24 @@ function parseGmailMessage(msg,userEmail) {
   var from=h.from||'';
   var dateStr=h.date||'';
   var snippet=msg.snippet||'';
-  var vendor=from.replace(/<[^>]+>/,'').replace(/"/g,'').trim();
-  if (!vendor||vendor.length>50) vendor=subject.split(/[-|]/)[0].trim().substring(0,40);
-  // Extract amount  -  also check snippet body
-  var amtRe=/[₪$€£]\s*[\d,]+\.?\d*|[\d,]+\.?\d*\s*[₪$€£]/;
-  var amtM=(subject+' '+snippet).match(amtRe);
-  var amount=amtM?amtM[0].trim():' - ';
+  // FIX 3a: Smart vendor extraction
+  var rawName = from.replace(/<[^>]+>/, '').replace(/"/g, '').trim();
+  var emailMatch = from.match(/<([^>]+)>/);
+  var emailAddr = emailMatch ? emailMatch[1] : from;
+  var vendor;
+  if (!rawName || rawName.includes('@')) {
+    // From: name is missing or is an email — extract domain and clean it up
+    var domainMatch = emailAddr.match(/@([^.]+)/);
+    vendor = domainMatch ? domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1) : emailAddr;
+  } else {
+    vendor = rawName.length > 50 ? rawName.substring(0, 40) : rawName;
+  }
+  if (!vendor) vendor = subject.split(/[-|]/)[0].trim().substring(0, 40);
+
+  // FIX 3b: Hebrew currency amount extraction
+  var amtRe = /[₪$€£]\s*[\d,]+\.?\d*|[\d,]+\.?\d*\s*[₪$€£]|[\d,]+\.?\d*\s*ש"ח|[\d,]+\.?\d*\s*שקל/;
+  var amtM = (subject + ' ' + snippet).match(amtRe);
+  var amount = amtM ? amtM[0].trim() : '-';
   // Extract VAT (מע"מ)
   var vatM=(snippet).match(/מע"מ[:\s]*([₪$]?\s*[\d,]+)/);
   var vatAmount=vatM?vatM[1].trim():null;
@@ -864,13 +913,15 @@ function parseGmailMessage(msg,userEmail) {
   var d=new Date(ts);
   var df=d.getDate()+'/'+(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(-2);
   var conf=confidenceScore(vendor,subject,snippet,amount);
+  // FIX 4: Silently drop very low confidence items (noise)
+  if (conf < 40) return null;
   return {
     id:'g_'+msg.id, msgId:msg.id, vendor:vendor,
     category:guessCategory(vendor+' '+subject),
     amount:amount, vatAmount:vatAmount, currency:currency,
     date:df, ts:ts,
     confidence:conf,
-    status:conf<50?'review':'ok',
+    status:conf<60?'review':'ok',
     source:'gmail', sourceEmail:userEmail
   };
 }
