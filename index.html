@@ -811,7 +811,7 @@ async function startGmailScan(userEmail) {
   var lastSync=LAST_SYNC[userEmail]||0;
   var afterTs=lastSync ? Math.floor(lastSync/1000) : 0;
   syncLog('תחום סריקה: ' + (afterTs ? 'מאז ' + new Date(lastSync).toLocaleDateString('he-IL') : daysBack + ' ימים אחרונים'));
-  // OR query: match from OR subject — confidence score filters noise afterward
+  // OR query: match from OR subject  -  confidence score filters noise afterward
   var fromClause    = 'from:(billing OR invoice OR receipt OR payment OR subscription OR orders OR accounts OR finance OR חשבונית OR קבלה OR חשבון OR noreply)';
   var subjectClause = 'subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR order OR charged OR חשבונית OR קבלה OR תשלום OR חיוב OR הזמנה)';
   var excludes      = '-from:reddit.com -from:linkedin.com -from:github.com -from:facebook.com -from:twitter.com -from:instagram.com -from:youtube.com -from:tiktok.com -from:medium.com -from:quora.com';
@@ -972,7 +972,7 @@ function parseGmailMessage(msg,userEmail) {
   var emailAddr = emailMatch ? emailMatch[1] : from;
   var vendor;
   if (!rawName || rawName.includes('@')) {
-    // From: name is missing or is an email — extract domain and clean it up
+    // From: name is missing or is an email  -  extract domain and clean it up
     var domainMatch = emailAddr.match(/@([^.]+)/);
     vendor = domainMatch ? domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1) : emailAddr;
   } else {
@@ -1780,7 +1780,7 @@ async function openReceiptViewer(msgId) {
 
     if (resp.status === 401 || resp.status === 403) {
       GOOGLE_TOKEN = null;
-      body.innerHTML = '<div class="rv-no-token">Token פג תוקף — התחבר מחדש ל-Gmail</div>';
+      body.innerHTML = '<div class="rv-no-token">Token פג תוקף  -  התחבר מחדש ל-Gmail</div>';
       return;
     }
     if (!resp.ok) throw new Error('Gmail API: ' + resp.status);
@@ -1850,4 +1850,4 @@ function rvMetaBlock(r) {
       '<span style="color:var(--text3);">ספק</span><span style="font-weight:500;">' + (r.vendor||'-') + '</span>' +
       '<span style="color:var(--text3);">סכום</span><span style="font-weight:500;">' + (r.amount||'-') + '</span>' +
       '<span style="color:var(--text3);">תאריך</span><span>' + (r.date||'-') + '</span>' +
-      '<span style="color:var(--text3);">קטגוריה</span><span>' + (r.c
+      '<span style="color:var(--text3);">קטגוריה</span><span>' 
