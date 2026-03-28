@@ -318,7 +318,7 @@ tr.rv-clickable:hover td{background:#F0FAF5;}
     <div class="settings-section">
       <div class="settings-label">&#128273; Google OAuth &mdash; Gmail API</div>
       <div class="card"><div class="card-body">
-        <div class="info-box">&#128279; <strong>&#1500;&#1495;&#1497;&#1489;&#1493;&#1512; Gmail &#1488;&#1502;&#1497;&#1514;&#1497;</strong> &#1504;&#1491;&#1512;&#1513; Google Client ID &#1502;-Google Cloud Console.</div>
+        <div class="info-box">&#128279; <strong>&#1500;&#1495;&#1497;&#1489;&#1493;&#1512; Gmail &#1488;&#1502;&#1497;&#1514;&#1497;</strong> &#1504;&#1491;&#1512;&#1513; Google Client ID &#1502;-Google Cloud Console.<br><strong>&#9888; &#1492;&#1502;&#1508;&#1514;&#1495; &#1504;&#1513;&#1502;&#1512; &#1489;&#1488;&#1493;&#1508;&#1503; &#1488;&#1493;&#1496;&#1493;&#1502;&#1496;&#1497; &#1489;&#1491;&#1508;&#1491;&#1508;&#1503; &#8212; &#1488;&#1497;&#1503; &#1510;&#1493;&#1512;&#1498; &#1500;&#1492;&#1494;&#1497;&#1503; &#1513;&#1493;&#1489; &#1500;&#1488;&#1495;&#1512; &#1508;&#1512;&#1505;&#1493;&#1501; &#1513;&#1497;&#1504;&#1493;&#1497;.</strong></div>
         <div class="setting-row">
           <div class="setting-info"><div class="setting-lbl">Google Client ID</div><div class="setting-desc">Google Cloud Console &rarr; APIs &amp; Services &rarr; Credentials</div></div>
           <input type="text" class="form-inp" id="s-google-id" placeholder="YOUR_ID.apps.googleusercontent.com" style="width:300px;font-size:11px;font-family:var(--mono);" oninput="saveCfg()" />
@@ -385,6 +385,7 @@ tr.rv-clickable:hover td{background:#F0FAF5;}
         <div class="signin-card-icon">&#128231;</div>
         <div class="signin-card-title">Gmail</div>
         <div class="signin-card-sub">OAuth 2.0 &mdash; &#1505;&#1497;&#1505;&#1502;&#1488; &#1500;&#1488; &#1504;&#1513;&#1502;&#1512;&#1514; &#1500;&#1506;&#1493;&#1500;&#1501;.</div>
+        <div id="google-id-saved-note" class="hidden" style="font-size:11px;color:var(--green-dk);margin-bottom:8px;padding:5px 10px;background:var(--green-lt);border-radius:var(--rsm);">&#10003; Client ID &#1513;&#1502;&#1493;&#1512; &#8212; &#1500;&#1495;&#1509; &#1500;&#1492;&#1514;&#1495;&#1489;&#1512;</div>
         <button class="btn google-btn" onclick="signInGoogle()" style="width:100%;justify-content:center;">
           <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/></svg>
           &#1492;&#1514;&#1495;&#1489;&#1512; &#1506;&#1501; Google
@@ -693,6 +694,11 @@ function loadCfg() {
     setToggle('t-filterout', CFG.filterout!==false);
     setToggle('t-linkcheck', CFG.linkcheck!==false);
     LAST_SYNC=JSON.parse(localStorage.getItem('receipilot_lastsync')||'{}');
+    // Show saved ID indicator on accounts page
+    var noteEl = document.getElementById('google-id-saved-note');
+    if (noteEl && CFG.googleClientId && CFG.googleClientId.includes('.apps.googleusercontent.com')) {
+      noteEl.classList.remove('hidden');
+    }
   } catch(e){}
   updateBanner();
 }
@@ -720,8 +726,12 @@ function updateBanner() {
   var ok=hasG||hasM;
   document.getElementById('config-banner').classList.toggle('ok',ok);
   document.getElementById('cfg-ok').classList.toggle('hidden',!ok);
-  if(!ok) document.getElementById('cfg-msg').textContent='הכנס Google Client ID ו/או Microsoft Client ID בהגדרות';
-  else document.getElementById('cfg-msg').textContent=(hasG?'Google ✓ ':'')+(hasM?'Microsoft ✓':'');
+  if(!ok) document.getElementById('cfg-msg').textContent='הכנס Google Client ID בהגדרות (נשמר אוטומטית)';
+  else {
+    var gShort = hasG ? ('Google ✓ ['+CFG.googleClientId.substring(0,12)+'...]') : '';
+    var mShort = hasM ? 'Microsoft ✓' : '';
+    document.getElementById('cfg-msg').textContent = gShort + (gShort&&mShort?' · ':'') + mShort;
+  }
 }
 
 // GOOGLE OAUTH
