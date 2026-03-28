@@ -1845,4 +1845,9 @@ async function openReceiptViewer(msgId) {
 
 function rvMetaBlock(r) {
   return '<div class="rv-section" style="margin-top:14px;border-top:1px solid var(--bdr);padding-top:14px;">' +
-    '<div class="rv-section-titl
+    '<div class="rv-section-title">פרטי קבלה</div>' +
+    '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12px;">' +
+      '<span style="color:var(--text3);">ספק</span><span style="font-weight:500;">' + (r.vendor||'-') + '</span>' +
+      '<span style="color:var(--text3);">סכום</span><span style="font-weight:500;">' + (r.amount||'-') + '</span>' +
+      '<span style="color:var(--text3);">תאריך</span><span>' + (r.date||'-') + '</span>' +
+      '<span style="color:var(--text3);">קטגוריה</span><span>' + (r.c
