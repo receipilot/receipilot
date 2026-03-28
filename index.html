@@ -646,6 +646,31 @@ tr.rv-clickable:hover td{background:#F0FAF5;}
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- RECEIPT VIEWER PANEL -->
+<div id="receipt-viewer">
+  <button class="rv-close" onclick="closeReceiptViewer()">&#10005;</button>
+  <div class="rv-hdr">
+    <div class="rv-vendor" id="rv-vendor">&#8212;</div>
+    <div class="rv-meta">
+      <span id="rv-amount" style="font-weight:600;color:var(--green-dk);"></span>
+      <span id="rv-cat"></span>
+      <span id="rv-date" style="color:var(--text3);"></span>
+    </div>
+  </div>
+  <div class="rv-body" id="rv-body">
+    <div style="text-align:center;padding:40px 0;">
+      <div class="spinner" style="margin:0 auto 12px;"></div>
+      <div style="font-size:12px;color:var(--text3);">&#1496;&#1506;&#1497;&#1504;&#1492;...</div>
+    </div>
+  </div>
+  <div class="rv-footer">
+    <a id="rv-gmail-link" href="#" target="_blank" rel="noopener" class="btn" style="font-size:12px;">
+      &#1508;&#1514;&#1495; &#1489;-Gmail &#8599;
+    </a>
+    <button class="btn sm" onclick="closeReceiptViewer()" style="margin-right:auto;">&#1505;&#1490;&#1493;&#1512;</button>
+  </div>
+</div>
+
 
 <!-- Auth libraries -->
 <script src="https://accounts.google.com/gsi/client"></script>
@@ -1544,32 +1569,7 @@ function exportPDF(){
   w.document.write('</thead><tbody>');
   w.document.write(rows);
   w.document.write('</tbody></table>');
-  w.document.write('
-<!-- RECEIPT VIEWER PANEL -->
-<div id="receipt-viewer">
-  <button class="rv-close" onclick="closeReceiptViewer()">&#10005;</button>
-  <div class="rv-hdr">
-    <div class="rv-vendor" id="rv-vendor">&#8212;</div>
-    <div class="rv-meta">
-      <span id="rv-amount" style="font-weight:600;color:var(--green-dk);"></span>
-      <span id="rv-cat"></span>
-      <span id="rv-date" style="color:var(--text3);"></span>
-    </div>
-  </div>
-  <div class="rv-body" id="rv-body">
-    <div style="text-align:center;padding:40px 0;">
-      <div class="spinner" style="margin:0 auto 12px;"></div>
-      <div style="font-size:12px;color:var(--text3);">&#1496;&#1506;&#1497;&#1504;&#1492;...</div>
-    </div>
-  </div>
-  <div class="rv-footer">
-    <a id="rv-gmail-link" href="#" target="_blank" rel="noopener" class="btn" style="font-size:12px;">
-      &#1508;&#1514;&#1495; &#1489;-Gmail &#8599;
-    </a>
-    <button class="btn sm" onclick="closeReceiptViewer()" style="margin-right:auto;">&#1505;&#1490;&#1493;&#1512;</button>
-  </div>
-</div>
-</body></html>');
+  w.document.write('</body></html>');
   w.document.close();
   w.print();
 }
