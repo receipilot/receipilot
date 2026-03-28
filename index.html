@@ -736,9 +736,12 @@ async function startGmailScan(userEmail) {
   // Incremental: use last sync time if available
   var lastSync=LAST_SYNC[userEmail]||0;
   var afterTs=lastSync ? Math.floor(lastSync/1000) : 0;
-  var query='(subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR חשבונית OR קבלה OR תשלום) OR from:(billing OR invoice OR receipts OR noreply))';
-  if (afterTs) query+=' after:'+afterTs;
-  else query+=' newer_than:'+daysBack+'d';
+  // Strict query: from must look like billing AND subject must contain receipt keywords
+  var strictFrom = 'from:(billing OR invoice OR receipt OR payment OR subscription OR orders OR no-reply OR noreply OR חשבונית OR קבלה)';
+  var strictSubj = 'subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR order OR חשבונית OR קבלה OR תשלום OR חיוב)';
+  var query = strictFrom + ' ' + strictSubj;
+  if (afterTs) query += ' after:' + afterTs;
+  else query += ' newer_than:' + daysBack + 'd';
 
   try {
     var messages=await gmailSearch(query,100);
@@ -809,8 +812,14 @@ function isExpenseReceipt(msg) {
   var snip=(msg.snippet||'').toLowerCase();
   var kwOk=['receipt','invoice','payment','billing','subscription','renewal','order','חשבונית','קבלה','תשלום','הזמנה','חיוב'];
   if (!kwOk.some(function(k){return subj.includes(k)||snip.includes(k);})) return false;
-  var kwBad=['security alert','verification code','unsubscribe','newsletter','התראת אבטחה','קוד אימות','test message','webinar','conference'];
-  if (kwBad.some(function(k){return subj.includes(k);})) return false;
+  var kwBad=['security alert','verification code','unsubscribe','newsletter','התראת אבטחה','קוד אימות','test message','webinar','conference',
+    'job alert','new job','your application','interview','you have a new message','digest','weekly','monthly update',
+    'invitation to join','has invited you','accepted your','commented on','mentioned you','replied to'];
+  if (kwBad.some(function(k){return subj.includes(k)||snip.includes(k);})) return false;
+  // Exclude known non-receipt senders
+  var badFrom=['reddit.com','linkedin.com','github.com','facebook.com','twitter.com','instagram.com',
+    'quora.com','medium.com','slack.com','notion.so','trello.com','asana.com'];
+  if (badFrom.some(function(d){return from.includes(d);})) return false;
   if (CFG.filterout) {
     var outgoing=['effectivesec.com','greeninvoice.co.il','shay.chen@','amir@effectivesec'];
     if (outgoing.some(function(k){return from.includes(k);})) return false;
