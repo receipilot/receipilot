@@ -681,7 +681,8 @@ tr.rv-clickable:hover td{background:#F0FAF5;}
 // CONFIG
 console.log("ReceiPilot v5.1 - script loaded OK");
 var CFG = {
-  googleClientId:'', msClientId:'', msTenant:'common',
+  googleClientId:'469050776774-n56gjhlo2j239bimpsipvn9drjn82f57.apps.googleusercontent.com',
+  msClientId:'', msTenant:'common',
   anthropicKey:'', bizname:'', cpaemail:'',
   gmailDays:90, filterout:true, linkcheck:true
 };
@@ -709,7 +710,11 @@ function go(page, btn) {
 function loadCfg() {
   try {
     var s=JSON.parse(localStorage.getItem('receipilot_cfg')||'{}');
+    // Merge localStorage over defaults, but never overwrite baked googleClientId with empty
+    var savedId = s.googleClientId;
     Object.assign(CFG,s);
+    if (!savedId && CFG.googleClientId) { /* keep baked value */ }
+    else if (savedId) CFG.googleClientId = savedId;
     setVal('s-google-id', CFG.googleClientId);
     setVal('s-ms-id',     CFG.msClientId);
     setVal('s-ms-tenant', CFG.msTenant||'common');
@@ -766,7 +771,7 @@ function signInGoogle() {
   setStatus('google-signin-status','loading','פותח חלון התחברות...');
   var tc=google.accounts.oauth2.initTokenClient({
     client_id: CFG.googleClientId,
-    scope:'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+    scope:'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email',
     callback: function(resp) {
       if (resp.error) { setStatus('google-signin-status','error','⚠ '+resp.error); return; }
       GOOGLE_TOKEN=resp.access_token;
@@ -774,13 +779,18 @@ function signInGoogle() {
         .then(function(r){ return r.json(); })
         .then(function(info){
           var userEmail = info.email;
-          if (!userEmail) { setStatus('google-signin-status','error','⚠ לא ניתן לאמת כתובת מייל'); return; }
+          if (!userEmail) userEmail = parseJWT(GOOGLE_TOKEN) || 'gmail-connected';
           addAccount(userEmail,'gmail','#4285F4');
           setStatus('google-signin-status','ok','✓ מחובר: '+userEmail);
           toast('✓ Gmail מחובר - '+userEmail);
           startGmailScan(userEmail);
-        }).catch(function(e){
-          setStatus('google-signin-status','error','שגיאה בקבלת פרטי חשבון: '+(e.message||''));
+        }).catch(function(){
+          // Fallback: try parseJWT, then generic label
+          var fallback = parseJWT(GOOGLE_TOKEN) || 'gmail-connected';
+          addAccount(fallback,'gmail','#4285F4');
+          setStatus('google-signin-status','ok','✓ מחובר: '+fallback);
+          toast('✓ Gmail מחובר');
+          startGmailScan(fallback);
         });
     }
   });
@@ -1835,52 +1845,4 @@ async function openReceiptViewer(msgId) {
 
 function rvMetaBlock(r) {
   return '<div class="rv-section" style="margin-top:14px;border-top:1px solid var(--bdr);padding-top:14px;">' +
-    '<div class="rv-section-title">פרטי קבלה</div>' +
-    '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12px;">' +
-      '<span style="color:var(--text3);">ספק</span><span style="font-weight:500;">' + (r.vendor||'-') + '</span>' +
-      '<span style="color:var(--text3);">סכום</span><span style="font-weight:500;">' + (r.amount||'-') + '</span>' +
-      '<span style="color:var(--text3);">תאריך</span><span>' + (r.date||'-') + '</span>' +
-      '<span style="color:var(--text3);">קטגוריה</span><span>' + (r.category||'-') + '</span>' +
-      '<span style="color:var(--text3);">מקור</span><span>' + (r.sourceEmail||r.source||'-') + '</span>' +
-      (r.confidence ? '<span style="color:var(--text3);">ביטחון</span><span>' + r.confidence + '%</span>' : '') +
-    '</div>' +
-  '</div>';
-}
-
-async function downloadAttachment(msgId, attId, filename, mimeType) {
-  if (!GOOGLE_TOKEN) { toast('יש להתחבר ל-Gmail'); return; }
-  var btn = event.target;
-  btn.disabled = true;
-  btn.textContent = 'מוריד...';
-  try {
-    var resp = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msgId + '/attachments/' + attId,
-      { headers: { Authorization: 'Bearer ' + GOOGLE_TOKEN } }
-    );
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    var data = await resp.json();
-    var base64 = (data.data || '').replace(/-/g,'+').replace(/_/g,'/');
-    var binary = atob(base64);
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    var blob = new Blob([bytes], {type: mimeType});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
-    toast('✓ קובץ הורד: ' + filename);
-  } catch(e) {
-    toast('שגיאה: ' + e.message);
-  }
-  btn.disabled = false;
-  btn.textContent = 'הורד';
-}
-
-
-</script>
-</body>
-</html>
+    '<div class="rv-section-titl
