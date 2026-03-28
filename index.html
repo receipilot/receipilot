@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReceiPilot - Receipt Manager</title>
+<title>ReceiPilot v5.1 - Receipt Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -679,6 +679,7 @@ tr.rv-clickable:hover td{background:#F0FAF5;}
 
 <script>
 // CONFIG
+console.log("ReceiPilot v5.1 - script loaded OK");
 var CFG = {
   googleClientId:'', msClientId:'', msTenant:'common',
   anthropicKey:'', bizname:'', cpaemail:'',
@@ -799,6 +800,7 @@ async function startGmailScan(userEmail) {
   // Incremental: use last sync time if available
   var lastSync=LAST_SYNC[userEmail]||0;
   var afterTs=lastSync ? Math.floor(lastSync/1000) : 0;
+  syncLog('תחום סריקה: ' + (afterTs ? 'מאז ' + new Date(lastSync).toLocaleDateString('he-IL') : daysBack + ' ימים אחרונים'));
   // OR query: match from OR subject — confidence score filters noise afterward
   var fromClause    = 'from:(billing OR invoice OR receipt OR payment OR subscription OR orders OR accounts OR finance OR חשבונית OR קבלה OR חשבון OR noreply)';
   var subjectClause = 'subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR order OR charged OR חשבונית OR קבלה OR תשלום OR חיוב OR הזמנה)';
@@ -808,7 +810,7 @@ async function startGmailScan(userEmail) {
   else query += ' newer_than:' + daysBack + 'd';
 
   try {
-    var messages=await gmailSearch(query,100);
+    var messages=await gmailSearch(query);
     syncLog('נמצאו '+messages.length+' מיילים '+(afterTs?'(מסנכרון אחרון)':''));
     var found=0,scanned=0;
     updateSyncBar(5);
@@ -853,12 +855,22 @@ async function startGmailScan(userEmail) {
   }
 }
 
-async function gmailSearch(q,max) {
-  var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults='+(max||50)+'&q='+encodeURIComponent(q),{headers:{Authorization:'Bearer '+GOOGLE_TOKEN}});
-  if (r.status===429) { await sleep(2000); return gmailSearch(q,max); } // rate limit retry
-  if (!r.ok) throw new Error('Gmail API: '+r.status);
-  var d=await r.json();
-  return d.messages||[];
+async function gmailSearch(q) {
+  var allMessages=[], pageToken=null, page=0;
+  do {
+    var url='https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=500&q='+encodeURIComponent(q);
+    if (pageToken) url+='&pageToken='+pageToken;
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+GOOGLE_TOKEN}});
+    if (r.status===429){await sleep(3000);continue;}
+    if (!r.ok) throw new Error('Gmail API: '+r.status);
+    var d=await r.json();
+    var batch=d.messages||[];
+    allMessages=allMessages.concat(batch);
+    pageToken=d.nextPageToken||null;
+    page++;
+    syncLog('עמוד '+page+': '+batch.length+' מיילים (סה"כ: '+allMessages.length+')');
+  } while (pageToken);
+  return allMessages;
 }
 
 async function gmailGetMessage(id) {
@@ -1131,7 +1143,7 @@ function renderAccounts() {
         '</div>'+
       '</div>'+
       '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green-dk);"><span class="status-dot dot-green"></span>פעיל</div>'+
-      '<button class="btn sm" onclick="rescan('+i+')">סרוק שוב</button>'+
+      '<button class="btn sm" onclick="rescan('+i+')" title="סרוק מחדש (כולל הכל)">סרוק שוב ♻</button>'+
       '<button class="btn sm danger" onclick="removeAcct('+i+')">הסר</button>'+
     '</div>';
   }).join('');
@@ -1139,6 +1151,9 @@ function renderAccounts() {
 
 function rescan(i) {
   var a=ACCOUNTS[i];
+  // Clear last sync to force full rescan
+  delete LAST_SYNC[a.email];
+  localStorage.setItem('receipilot_lastsync',JSON.stringify(LAST_SYNC));
   if (a.type==='gmail'&&GOOGLE_TOKEN) startGmailScan(a.email);
   else if (a.type==='outlook'&&MS_TOKEN) startOutlookScan(a.email);
   else toast('יש להתחבר שוב תחילה');
@@ -1535,290 +1550,4 @@ function exportExcel(){
   var wb=XLSX.utils.book_new();
   var data=[
     ['דוח קבלות  -  ReceiPilot','','','','','',''],
-    ['הופק:',new Date().toLocaleDateString('he-IL'),'','','','',''],[''],
-    ['#','ספק','קטגוריה','מקור','תאריך','סכום','מטבע','ביטחון','סטטוס']
-  ];
-  RECEIPTS.forEach(function(r,i){data.push([i+1,r.vendor,r.category,r.sourceEmail||r.source,r.date,r.amount,r.currency||'ILS',(r.confidence||0)+'%',r.status==='ok'?'מאושר':'לבדיקה']);});
-  data.push([''],['סה"כ:',RECEIPTS.length]);
-  var ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:4},{wch:28},{wch:14},{wch:24},{wch:12},{wch:12},{wch:8},{wch:8},{wch:10}];
-  XLSX.utils.book_append_sheet(wb,ws,'קבלות');
-  XLSX.writeFile(wb,'receipilot-'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast('✓ Excel הורד');
-}
-
-function exportPDF(){
-  if(!RECEIPTS.length){toast('אין קבלות לייצוא');return;}
-  var rows=RECEIPTS.map(function(r,i){
-    return '<tr><td>'+(i+1)+'</td><td>'+(r.vendor||'')+'</td><td>'+(r.category||'')+'</td><td>'+(r.date||'')+'</td><td>'+(r.amount||'')+'</td><td>'+(r.confidence||0)+'%</td></tr>';
-  }).join('');
-  var w=window.open('','_blank');
-  if(!w){toast('אפשר popups בדפדפן');return;}
-  w.document.open();
-  w.document.write('<!DOCTYPE html>');
-  w.document.write('<html dir="rtl"><head><meta charset="UTF-8">');
-  w.document.write('<title>ReceiPilot - Receipt Report</title>');
-  w.document.write('<style>');
-  w.document.write('body{font-family:Arial,sans-serif;font-size:12px;direction:rtl;}');
-  w.document.write('h2{font-size:16px;margin-bottom:4px;}');
-  w.document.write('p{font-size:12px;color:#666;margin-bottom:14px;}');
-  w.document.write('table{width:100%;border-collapse:collapse;}');
-  w.document.write('th,td{padding:6px 8px;border:1px solid #ddd;text-align:right;}');
-  w.document.write('th{background:#f0f0f0;}');
-  w.document.write('</style></head><body>');
-  w.document.write('<h2>ReceiPilot - Receipt Report</h2>');
-  w.document.write('<p>' + new Date().toLocaleDateString('he-IL') + ' | ' + RECEIPTS.length + ' receipts</p>');
-  w.document.write('<table><thead>');
-  w.document.write('<tr><th>#</th><th>Vendor</th><th>Category</th><th>Date</th><th>Amount</th><th>Confidence</th></tr>');
-  w.document.write('</thead><tbody>');
-  w.document.write(rows);
-  w.document.write('</tbody></table>');
-  w.document.write('</body></html>');
-  w.document.close();
-  w.print();
-}
-
-// REPORT
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-
-function sendReport(){
-  var email=document.getElementById('cpa-email').value.trim();
-  if(!email){toast('הכנס אימייל רו"ח');return;}
-  if(!RECEIPTS.length){toast('אין קבלות לשלוח');return;}
-  if(!GOOGLE_TOKEN){toast('יש להתחבר ל-Gmail תחילה');return;}
-  var prog=document.getElementById('rep-prog'),bar=document.getElementById('rep-bar'),status=document.getElementById('rep-status');
-  prog.classList.remove('hidden');bar.style.width='20%';status.textContent='מכין...';
-  var body='שלום,\n\nמצורף דוח קבלות עסקיות.\n\nסיכום:\n- סה"כ קבלות: '+RECEIPTS.length+'\n- מחשבונות: '+ACCOUNTS.map(function(a){return a.email;}).join(', ')+'\n\nבברכה';
-  var msg='To: '+email+'\r\nSubject: =?UTF-8?B?'+btoa(unescape(encodeURIComponent('דוח קבלות ReceiPilot')))+'?=\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n'+body;
-  var enc=btoa(unescape(encodeURIComponent(msg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  bar.style.width='60%';status.textContent='שולח...';
-  fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+GOOGLE_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({raw:enc})})
-    .then(function(r){if(!r.ok)throw new Error('Gmail send: '+r.status);bar.style.width='100%';status.textContent='✓ נשלח ל-'+email;toast('✓ דוח נשלח!');setTimeout(function(){closeModal('rep-modal');},2000);})
-    .catch(function(e){bar.style.width='100%';bar.style.background='var(--amber)';status.textContent='⚠ '+e.message;});
-}
-
-// UTILS
-function setStatus(id,type,msg){var el=document.getElementById(id);if(!el)return;var c={ok:'var(--green-dk)',error:'var(--red)',loading:'var(--text3)'};el.style.color=c[type]||c.loading;el.textContent=msg;}
-function timeAgo(ts){var d=Date.now()-ts;if(d<60000)return 'זה עתה';if(d<3600000)return Math.floor(d/60000)+' דקות';if(d<86400000)return Math.floor(d/3600000)+' שעות';return Math.floor(d/86400000)+' ימים';}
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-
-var _tt;
-function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('show');},3500);}
-
-function clearAll(){if(!confirm('מחק כל הנתונים?'))return;RECEIPTS=[];FILTERED=[];PENDING=[];ACCOUNTS=[];GOOGLE_TOKEN=null;MS_TOKEN=null;LAST_SYNC={};localStorage.removeItem('receipilot_lastsync');renderAccounts();applyFilters();updateMetrics();renderPending();toast('נתונים נמחקו');}
-
-document.addEventListener('DOMContentLoaded',function(){
-  loadCfg();
-  applyFilters();renderAccounts();renderPending();updateMetrics();
-  document.addEventListener('click',function(e){document.querySelectorAll('.overlay.open').forEach(function(o){if(e.target===o)closeModal(o.id);});});
-  if(CFG.msClientId)initMSAL();
-  var dz=document.getElementById('drop-zone');
-  if(dz){
-    dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
-    dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
-    dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');var f=e.dataTransfer.files[0];if(f){var dt=new DataTransfer();dt.items.add(f);document.getElementById('file-inp').files=dt.files;handleFile({files:dt.files});}});
-  }
-});
-
-// ════════════════════════════════════════════════
-// RECEIPT VIEWER
-// ════════════════════════════════════════════════
-var RV_CURRENT_MSGID = null;
-
-function closeReceiptViewer() {
-  document.getElementById('receipt-viewer').classList.remove('open');
-  if (RV_CURRENT_MSGID) {
-    var row = document.getElementById('rv-row-' + RV_CURRENT_MSGID);
-    if (row) row.classList.remove('rv-selected');
-  }
-  RV_CURRENT_MSGID = null;
-}
-
-function decodeBase64url(str) {
-  if (!str) return '';
-  try {
-    var base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    return decodeURIComponent(escape(atob(base64)));
-  } catch(e) { return ''; }
-}
-
-function extractParts(payload) {
-  var html = null, plain = null, attachments = [];
-  function walk(part) {
-    if (!part) return;
-    if (part.mimeType === 'text/html' && part.body && part.body.data) html = part.body.data;
-    if (part.mimeType === 'text/plain' && part.body && part.body.data && !html) plain = part.body.data;
-    if (part.filename && part.filename.length > 0 && part.body && part.body.attachmentId) {
-      attachments.push({
-        name: part.filename,
-        id: part.body.attachmentId,
-        mimeType: part.mimeType || 'application/octet-stream',
-        size: part.body.size || 0
-      });
-    }
-    if (part.parts) part.parts.forEach(walk);
-  }
-  // Handle simple body (no parts)
-  if (payload.body && payload.body.data) {
-    if (payload.mimeType === 'text/html') html = payload.body.data;
-    else plain = payload.body.data;
-  }
-  if (payload.parts) payload.parts.forEach(walk);
-  return {html: html, plain: plain, attachments: attachments};
-}
-
-function sanitizeHtml(raw) {
-  // Remove script tags
-  raw = raw.replace(/<scr" + "ipt[^>]*>[\s\S]*?<\/scr" + "ipt>/gi, '');
-  // Remove external stylesheets
-  raw = raw.replace(/<link[^>]+rel=["']stylesheet["'][^>]*>/gi, '');
-  // Remove tracking pixels (1x1 images)
-  raw = raw.replace(/<img[^>]+width=["']1["'][^>]*>/gi, '');
-  raw = raw.replace(/<img[^>]+height=["']1["'][^>]*>/gi, '');
-  // Remove onclick handlers
-  raw = raw.replace(/\s+on\w+="[^"]*"/gi, '');
-  raw = raw.replace(/\s+on\w+='[^']*'/gi, '');
-  return raw;
-}
-
-function plainToHtml(text) {
-  return '<pre style="font-family:Arial,sans-serif;font-size:13px;white-space:pre-wrap;word-break:break-word;padding:12px;margin:0;">' +
-    text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>';
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return Math.round(bytes/1024) + ' KB';
-  return (bytes/1024/1024).toFixed(1) + ' MB';
-}
-
-async function openReceiptViewer(msgId) {
-  // Find receipt
-  var r = RECEIPTS.find(function(x){ return (x.msgId||x.id) === msgId; });
-  if (!r) return;
-
-  // Deselect previous row
-  if (RV_CURRENT_MSGID && RV_CURRENT_MSGID !== msgId) {
-    var oldRow = document.getElementById('rv-row-' + RV_CURRENT_MSGID);
-    if (oldRow) oldRow.classList.remove('rv-selected');
-  }
-  RV_CURRENT_MSGID = msgId;
-
-  // Highlight selected row
-  var row = document.getElementById('rv-row-' + msgId);
-  if (row) row.classList.add('rv-selected');
-
-  // Populate header immediately
-  document.getElementById('rv-vendor').textContent = r.vendor || '-';
-  document.getElementById('rv-amount').textContent = r.amount || '';
-  document.getElementById('rv-cat').innerHTML = catTag(r.category || 'אחר');
-  document.getElementById('rv-date').textContent = r.date || '';
-
-  // Gmail link
-  var gmailLink = document.getElementById('rv-gmail-link');
-  if (r.source === 'gmail' && r.msgId) {
-    gmailLink.href = 'https://mail.google.com/mail/u/0/#inbox/' + r.msgId;
-    gmailLink.style.display = '';
-  } else {
-    gmailLink.style.display = 'none';
-  }
-
-  // Open panel
-  document.getElementById('receipt-viewer').classList.add('open');
-
-  // Show loading
-  var body = document.getElementById('rv-body');
-  body.innerHTML = '<div style="text-align:center;padding:40px 0;"><div class="spinner" style="margin:0 auto 12px;"></div><div style="font-size:12px;color:var(--text3);">טוען תוכן...</div></div>';
-
-  // No token or not Gmail
-  if (r.source !== 'gmail' || !GOOGLE_TOKEN) {
-    body.innerHTML =
-      '<div class="rv-no-token">' +
-        '<div style="font-size:24px;margin-bottom:8px;">📧</div>' +
-        (r.source !== 'gmail'
-          ? '<strong>קבלה ידנית</strong><br>קבלה זו הועלתה ידנית ואין לה מקור מייל לצפייה.'
-          : '<strong>יש להתחבר ל-Gmail לצפייה</strong><br>לחץ "חשבונות מחוברים" ← "התחבר עם Google"') +
-      '</div>' +
-      rvMetaBlock(r);
-    return;
-  }
-
-  // Fetch full message from Gmail API
-  try {
-    var resp = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + r.msgId + '?format=full',
-      { headers: { Authorization: 'Bearer ' + GOOGLE_TOKEN } }
-    );
-
-    if (resp.status === 401 || resp.status === 403) {
-      GOOGLE_TOKEN = null;
-      body.innerHTML = '<div class="rv-no-token">Token פג תוקף — התחבר מחדש ל-Gmail</div>';
-      return;
-    }
-    if (!resp.ok) throw new Error('Gmail API: ' + resp.status);
-
-    var data = await resp.json();
-    var parts = extractParts(data.payload || {});
-
-    // Build HTML content
-    var htmlContent = '';
-    if (parts.html) {
-      htmlContent = sanitizeHtml(decodeBase64url(parts.html));
-    } else if (parts.plain) {
-      htmlContent = plainToHtml(decodeBase64url(parts.plain));
-    }
-
-    // Render
-    var out = '';
-
-    // Attachments section
-    if (parts.attachments.length > 0) {
-      out += '<div class="rv-section">';
-      out += '<div class="rv-section-title">קבצים מצורפים (' + parts.attachments.length + ')</div>';
-      parts.attachments.forEach(function(att) {
-        var isImg = att.mimeType.indexOf('image/') === 0;
-        out += '<div class="rv-att" id="rv-att-' + att.id + '">' +
-          '<span style="font-size:18px;">' + (isImg ? '🖼️' : att.mimeType === 'application/pdf' ? '📄' : '📎') + '</span>' +
-          '<span class="rv-att-name">' + att.name + '</span>' +
-          '<span class="rv-att-size">' + formatBytes(att.size) + '</span>' +
-          '<button class="btn sm" onclick="downloadAttachment(\'' + r.msgId + '\',\'' + att.id + '\',\'' + att.name + '\',\'' + att.mimeType + '\')">הורד</button>' +
-        '</div>';
-      });
-      out += '</div>';
-    }
-
-    // Email body section
-    if (htmlContent) {
-      out += '<div class="rv-section">';
-      out += '<div class="rv-section-title">תוכן המייל</div>';
-      out += '<iframe class="rv-iframe" sandbox="allow-same-origin" id="rv-iframe-' + msgId + '"></iframe>';
-      out += '</div>';
-    } else {
-      out += '<div class="rv-no-token" style="background:var(--bg3);border-color:var(--bdr);color:var(--text3);">אין תוכן מייל זמין לצפייה</div>';
-    }
-
-    out += rvMetaBlock(r);
-    body.innerHTML = out;
-
-    // Write to iframe after render
-    if (htmlContent) {
-      var ifrm = document.getElementById('rv-iframe-' + msgId);
-      if (ifrm) {
-        ifrm.contentDocument.open();
-        ifrm.contentDocument.write(htmlContent);
-        ifrm.contentDocument.close();
-      }
-    }
-
-  } catch(e) {
-    body.innerHTML = '<div class="rv-no-token" style="background:var(--red-lt);border-color:#F7C1C1;color:var(--red);">שגיאה בטעינה: ' + e.message + '</div>' + rvMetaBlock(r);
-  }
-}
-
-function rvMetaBlock(r) {
-  return '<div class="rv-section" style="margin-top:14px;border-top:1px solid var(--bdr);padding-top:14px;">' +
-    '<div class="rv-section-title">פרטי קבלה</div>' +
-    '<div style="display:
+    ['הופק:',new Date().toLocaleDateString('h
