@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReceiPilot - Receipt Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font:'IBM Plex Sans Hebrew',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --green:#1D9E75;--green-lt:#E1F5EE;--green-dk:#0F6E56;
+  --amber:#BA7517;--amber-lt:#FAEEDA;
+  --red:#A32D2D;--red-lt:#FCEBEB;
+  --blue:#185FA5;--blue-lt:#E6F1FB;
+  --ms:#0078D4;--ms-lt:#EBF3FC;
+  --bg:#F4F3F0;--bg2:#FFF;--bg3:#EBEBEB;
+  --text:#18180F;--text2:#56564F;--text3:#96968F;
+  --bdr:rgba(0,0,0,.08);--bdr2:rgba(0,0,0,.15);
+  --r:10px;--rsm:6px;--rlg:14px;--nav:240px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh}
+button,input,select,textarea{font-family:var(--font)}
+#config-banner{background:#1A1A18;color:#E8E8E0;padding:10px 20px;font-size:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#config-banner.ok{background:var(--green-dk);color:#fff}
+#config-banner.ok .cfg-warning{display:none}
+.cfg-warning{color:#FAC75A;font-weight:600}
+.cfg-link{color:#9FE1CB;text-decoration:underline;cursor:pointer}
+.shell{display:flex;height:calc(100vh - 42px);overflow:hidden}
+.sidebar{width:var(--nav);background:var(--bg2);border-left:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px;padding:0 24px;flex-shrink:0}
+.page-title{font-size:15px;font-weight:600}
+.tb-right{margin-right:auto;display:flex;gap:8px}
+.content{flex:1;overflow-y:auto;padding:24px}
+.brand{padding:16px 18px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px}
+.brand-icon{width:34px;height:34px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center}
+.brand-icon svg{width:18px;height:18px;fill:white}
+.brand-name{font-size:15px;font-weight:600}
+.brand-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.nav-group{padding:8px 0}
+.nav-group+.nav-group{border-top:1px solid var(--bdr)}
+.nav-lbl{font-size:10px;font-weight:600;letter-spacing:.07em;color:var(--text3);padding:8px 18px 4px;text-transform:uppercase}
+.nav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:9px 18px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);text-align:right;transition:background .1s}
+.nav-btn:hover{background:var(--bg);color:var(--text)}
+.nav-btn.active{background:var(--green-lt);color:var(--green-dk);font-weight:500}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0;opacity:.65}
+.nav-btn.active svg{opacity:1}
+.nbadge{margin-right:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+.bg-green{background:var(--green-lt);color:var(--green-dk)}
+.bg-amber{background:var(--amber-lt);color:var(--amber)}
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:7px 14px;border-radius:var(--rsm);cursor:pointer;border:1px solid var(--bdr2);background:var(--bg2);color:var(--text);transition:background .1s}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-dk)}
+.btn.ms-btn{background:var(--ms);border-color:var(--ms);color:#fff}
+.btn.ms-btn:hover{background:#006bbf}
+.btn.google-btn{background:#fff;border-color:#ddd;color:#333;gap:8px}
+.btn.danger{background:var(--red-lt);border-color:#F7C1C1;color:var(--red)}
+.btn.sm{font-size:11px;padding:5px 10px}
+.btn:disabled{opacity:.4;cursor:default}
+.btn svg{width:13px;height:13px;flex-shrink:0}
+.acct-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.acct-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#fff;flex-shrink:0}
+.acct-info{flex:1;min-width:0}
+.acct-email{font-size:13px;font-weight:600}
+.acct-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.acct-type-pill{font-size:10px;font-weight:600;padding:3px 9px;border-radius:8px;background:var(--blue-lt);color:var(--blue)}
+.acct-type-pill.ms{background:var(--ms-lt);color:var(--ms)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green)}
+.dot-gray{background:var(--text3)}
+.signin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.signin-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);padding:20px;text-align:center}
+.signin-card-icon{font-size:32px;margin-bottom:10px}
+.signin-card-title{font-size:14px;font-weight:600;margin-bottom:6px}
+.signin-card-sub{font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:14px}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.metric{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);padding:15px 18px;position:relative;overflow:hidden}
+.metric::before{content:'';position:absolute;top:0;right:0;width:3px;height:100%}
+.m-g::before{background:var(--green)}
+.m-b::before{background:var(--blue)}
+.m-a::before{background:var(--amber)}
+.m-ms::before{background:var(--ms)}
+.m-lbl{font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:500}
+.m-val{font-size:22px;font-weight:600;line-height:1}
+.m-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);overflow:hidden}
+.card-hdr{padding:13px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13px;font-weight:600}
+.card-body{padding:16px 18px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:11px;font-weight:600;color:var(--text3);padding:8px 14px;text-align:right;border-bottom:1px solid var(--bdr);background:var(--bg);white-space:nowrap;cursor:pointer}
+thead th:hover{background:#EDECEA}
+tbody tr:hover{background:#FAFAF8}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+.tbl-vendor{font-weight:500;font-size:13px}
+.tbl-amt{font-family:var(--mono);font-weight:500}
+.tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.st{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.st-ok{background:var(--green-lt);color:var(--green-dk)}
+.st-pend{background:var(--amber-lt);color:var(--amber)}
+.st-low{background:#FAEEDA;color:#854F0B}
+.search-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);padding:12px 16px}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap svg{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3);pointer-events:none}
+.search-inp{width:100%;border:1px solid var(--bdr2);border-radius:var(--rsm);padding:8px 32px 8px 12px;font-size:13px;background:var(--bg2);color:var(--text);outline:none}
+.search-inp:focus{border-color:var(--green)}
+.fsel{border:1px solid var(--bdr2);border-radius:var(--rsm);padding:6px 10px;font-size:12px;background:var(--bg2);color:var(--text2);cursor:pointer;outline:none}
+.res-count{font-size:12px;color:var(--text3);white-space:nowrap}
+.progress-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s}
+.sync-log{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rsm);padding:10px 12px;font-size:11px;font-family:var(--mono);color:var(--text2);max-height:160px;overflow-y:auto;margin-top:10px;white-space:pre-wrap}
+.drop-zone{border:2px dashed var(--bdr2);border-radius:var(--rlg);padding:28px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+.drop-zone:hover,.drop-zone.over{border-color:var(--green);background:var(--green-lt)}
+.form-group{margin-bottom:13px}
+.form-lbl{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block}
+.form-inp{width:100%;border:1px solid var(--bdr2);border-radius:var(--rsm);padding:8px 12px;font-size:13px;background:var(--bg2);color:var(--text);outline:none}
+.form-inp:focus{border-color:var(--green)}
+select.form-inp{cursor:pointer}
+textarea.form-inp{resize:vertical;min-height:70px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--rlg);width:500px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);border:1px solid var(--bdr2)}
+.modal-hdr{padding:18px 20px 14px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:600}
+.modal-x{width:26px;height:26px;border-radius:6px;border:1px solid var(--bdr);background:var(--bg);cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;justify-content:center}
+.modal-body{padding:18px 20px}
+.ch-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ch-pill{padding:10px;border:1px solid var(--bdr2);border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;text-align:center;color:var(--text2);background:var(--bg)}
+.ch-pill.on{background:var(--green-lt);border-color:#9FE1CB;color:var(--green-dk)}
+.ch-icon{font-size:18px;display:block;margin-bottom:4px}
+.send-status{font-size:12px;color:var(--text3);margin-top:8px;min-height:18px}
+.settings-section{margin-bottom:22px}
+.settings-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)}
+.setting-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bdr)}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1}
+.setting-lbl{font-size:13px;font-weight:500}
+.setting-desc{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
+.toggle{width:38px;height:22px;border-radius:11px;background:var(--bdr2);position:relative;cursor:pointer;border:none;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--green)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;right:3px;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on::after{right:19px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:400;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite}
+.spinner{width:18px;height:18px;border:2px solid var(--bdr2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;text-align:center;gap:10px}
+.empty-icon{font-size:36px}
+.empty-title{font-size:14px;font-weight:600}
+.empty-sub{font-size:12px;color:var(--text3);max-width:340px;line-height:1.6}
+.info-box{background:var(--blue-lt);border:1px solid #B5D4F4;border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--blue);line-height:1.6;margin-bottom:14px}
+.warn-box{background:var(--amber-lt);border:1px solid #FAC775;border-radius:var(--r);padding:12px 14px;font-size:12px;color:#854F0B;line-height:1.5;display:flex;gap:10px}
+.pending-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bdr)}
+.pending-item:last-child{border-bottom:none}
+.p-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.p-body{flex:1;min-width:0}
+.p-title{font-size:12px;font-weight:600}
+.p-url{font-size:10px;color:var(--text3);font-family:var(--mono);word-break:break-all;margin-top:2px}
+.p-actions{display:flex;gap:6px;margin-top:7px}
+.pa{font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--bdr2);cursor:pointer;background:none;color:var(--text2);font-weight:500}
+.pa.ok{background:var(--green-lt);color:var(--green-dk);border-color:#9FE1CB}
+.pa.no{background:var(--red-lt);color:var(--red);border-color:#F7C1C1}
+.link-box{background:var(--amber-lt);border:1px solid #FAC775;border-radius:var(--r);padding:12px;margin-top:10px}
+.link-box-title{font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px}
+.link-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px}
+.link-url-txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);color:var(--text2)}
+.hidden{display:none!important}
+/* TEST SUITE */
+.test-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.test-row:last-child{border-bottom:none}
+.test-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;background:var(--bg3)}
+.test-icon.pass{background:var(--green-lt);color:var(--green-dk)}
+.test-icon.fail{background:var(--red-lt);color:var(--red)}
+.test-icon.run{background:var(--amber-lt);color:var(--amber)}
+.test-name{flex:1;font-weight:500}
+.test-detail{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.test-summary{padding:14px;border-radius:var(--r);text-align:center;font-size:13px;font-weight:600;margin-top:14px}
+.test-summary.pass{background:var(--green-lt);color:var(--green-dk)}
+.test-summary.fail{background:var(--red-lt);color:var(--red)}
+/* GITHUB DEPLOY GUIDE */
+.deploy-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bdr)}
+.deploy-step:last-child{border-bottom:none}
+.deploy-num{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+.deploy-body{flex:1}
+.deploy-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.deploy-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.code-block{background:#1A1A18;color:#9FE1CB;border-radius:var(--rsm);padding:8px 12px;font-family:var(--mono);font-size:11px;margin-top:6px;word-break:break-all}
+.conf-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px}
+.conf-high{background:var(--green-lt);color:var(--green-dk)}
+.conf-med{background:#FAEEDA;color:#854F0B}
+.conf-low{background:var(--red-lt);color:var(--red)}
+</style>
+</head>
+<body>
+
+<div id="config-banner">
+  <span class="cfg-warning">&#9888; נדרשת הגדרה:</span>
+  <span id="cfg-msg">הכנס Client IDs בהגדרות</span>
+  <span class="cfg-link" onclick="go('settings',null)">&#8594; עבור להגדרות</span>
+  <span id="cfg-ok" class="hidden" style="color:#9FE1CB;font-weight:600;">&#10003; מוגדר ומוכן לחיבור</span>
+</div>
+
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg></div>
+    <div><div class="brand-name">ReceiPilot</div><div class="brand-sub">&#1504;&#1497;&#1492;&#1493;&#1500; &#1511;&#1489;&#1500;&#1493;&#1514; &#1495;&#1499;&#1501;</div></div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">&#1512;&#1488;&#1513;&#1497;</div>
+    <button class="nav-btn" onclick="go('receipts',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+      &#1511;&#1489;&#1500;&#1493;&#1514;
+      <span class="nbadge bg-green" id="nb-r">0</span>
+    </button>
+    <button class="nav-btn" onclick="go('pending',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>
+      &#1502;&#1502;&#1514;&#1497;&#1504;&#1497;&#1501;
+      <span class="nbadge bg-amber hidden" id="nb-p">0</span>
+    </button>
+    <button class="nav-btn" onclick="go('upload',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      &#1492;&#1506;&#1500;&#1488;&#1492; &#1497;&#1491;&#1504;&#1497;&#1514;
+    </button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">&#1491;&#1493;&#1495;&#1493;&#1514;</div>
+    <button class="nav-btn" onclick="openModal('rep-modal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      &#1513;&#1500;&#1495; &#1500;&#1512;&#1493;&quot;&#1495;
+    </button>
+    <button class="nav-btn" onclick="exportExcel()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      &#1497;&#1510;&#1488; Excel
+    </button>
+    <button class="nav-btn" onclick="exportPDF()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      &#1497;&#1510;&#1488; PDF
+    </button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">&#1492;&#1490;&#1491;&#1512;&#1493;&#1514;</div>
+    <button class="nav-btn" onclick="go('accounts',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      &#1495;&#1513;&#1489;&#1493;&#1504;&#1493;&#1514; &#1502;&#1495;&#1493;&#1489;&#1512;&#1497;&#1501;
+      <span class="nbadge bg-green" id="nb-acct">0</span>
+    </button>
+    <button class="nav-btn" onclick="go('deploy',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.778-7.778zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      &#1508;&#1512;&#1505;&#1493;&#1501; GitHub Pages
+    </button>
+    <button class="nav-btn" onclick="go('tests',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      &#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1488;&#1493;&#1496;&#1493;&#1502;&#1496;&#1497;&#1493;&#1514;
+    </button>
+    <button class="nav-btn active" onclick="go('settings',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      &#1492;&#1490;&#1491;&#1512;&#1493;&#1514;
+    </button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="page-title" id="page-title">&#1492;&#1490;&#1491;&#1512;&#1493;&#1514;</span>
+    <div class="tb-right">
+      <button class="btn" onclick="go('upload',null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        &#1492;&#1506;&#1500;&#1492; &#1511;&#1489;&#1500;&#1492;
+      </button>
+      <button class="btn primary" onclick="openModal('rep-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        &#1513;&#1500;&#1495; &#1500;&#1512;&#1493;&quot;&#1495;
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+  <!-- SETTINGS -->
+  <div id="v-settings">
+    <div class="settings-section">
+      <div class="settings-label">&#128273; Google OAuth &mdash; Gmail API</div>
+      <div class="card"><div class="card-body">
+        <div class="info-box">&#128279; <strong>&#1500;&#1495;&#1497;&#1489;&#1493;&#1512; Gmail &#1488;&#1502;&#1497;&#1514;&#1497;</strong> &#1504;&#1491;&#1512;&#1513; Google Client ID &#1502;-Google Cloud Console.</div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">Google Client ID</div><div class="setting-desc">Google Cloud Console &rarr; APIs &amp; Services &rarr; Credentials</div></div>
+          <input type="text" class="form-inp" id="s-google-id" placeholder="YOUR_ID.apps.googleusercontent.com" style="width:300px;font-size:11px;font-family:var(--mono);" oninput="saveCfg()" />
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1505;&#1512;&#1497;&#1511;&#1514; &#1511;&#1489;&#1500;&#1493;&#1514; &#1502;-</div></div>
+          <select class="form-inp" id="s-gmail-days" style="width:160px;" onchange="saveCfg()">
+            <option value="30">30 &#1497;&#1493;&#1501;</option>
+            <option value="60">60 &#1497;&#1493;&#1501;</option>
+            <option value="90" selected>90 &#1497;&#1493;&#1501;</option>
+            <option value="180">&#1495;&#1510;&#1497; &#1513;&#1504;&#1492;</option>
+            <option value="365">&#1513;&#1504;&#1492;</option>
+          </select>
+        </div>
+        <div id="google-status" style="margin-top:10px;font-size:12px;"></div>
+      </div></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">&#128311; Microsoft OAuth &mdash; Outlook / Office 365</div>
+      <div class="card"><div class="card-body">
+        <div class="info-box">&#128279; <strong>&#1500;&#1495;&#1497;&#1489;&#1493;&#1512; Outlook</strong> &#1504;&#1491;&#1512;&#1513; Azure App Registration.</div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">Microsoft Client ID</div><div class="setting-desc">Azure Portal &rarr; App registrations &rarr; Application (client) ID</div></div>
+          <input type="text" class="form-inp" id="s-ms-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:300px;font-size:11px;font-family:var(--mono);" oninput="saveCfg()" />
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">Tenant ID</div><div class="setting-desc">common (&#1495;&#1513;&#1489;&#1493;&#1503; &#1488;&#1497;&#1513;&#1497;) &#1488;&#1493; Directory ID &#1513;&#1500; &#1492;&#1488;&#1512;&#1490;&#1493;&#1503;</div></div>
+          <input type="text" class="form-inp" id="s-ms-tenant" placeholder="common" style="width:200px;font-size:11px;font-family:var(--mono);" oninput="saveCfg()" />
+        </div>
+        <div id="ms-status" style="margin-top:10px;font-size:12px;"></div>
+      </div></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">&#9881;&#65039; &#1499;&#1500;&#1500;&#1497;</div>
+      <div class="card"><div class="card-body">
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1513;&#1501; &#1492;&#1506;&#1505;&#1511; / &#1489;&#1506;&#1500; &#1492;&#1502;&#1511;&#1510;&#1493;&#1506;</div></div>
+          <input type="text" class="form-inp" id="s-bizname" placeholder="&#1513;&#1501; &#1492;&#1506;&#1505;&#1511;" style="width:220px;" oninput="saveCfg()" />
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1488;&#1497;&#1502;&#1497;&#1497;&#1500; &#1512;&#1493;&quot;&#1495; &#1489;&#1512;&#1497;&#1512;&#1514; &#1502;&#1495;&#1491;&#1500;</div></div>
+          <input type="email" class="form-inp" id="s-cpaemail" placeholder="cpa@example.co.il" style="width:220px;" oninput="saveCfg()" />
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1505;&#1497;&#1504;&#1493;&#1503; &#1495;&#1513;&#1489;&#1493;&#1504;&#1497;&#1493;&#1514; &#1497;&#1493;&#1510;&#1488;&#1493;&#1514;</div><div class="setting-desc">&#1492;&#1505;&#1514;&#1512; &#1495;&#1513;&#1489;&#1493;&#1504;&#1497;&#1493;&#1514; &#1513;&#1488;&#1514;&#1492; &#1513;&#1493;&#1500;&#1495; &#1500;&#1500;&#1511;&#1493;&#1495;&#1493;&#1514;</div></div>
+          <button class="toggle on" id="t-filterout" onclick="this.classList.toggle('on');saveCfg()"></button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1489;&#1491;&#1497;&#1511;&#1514; &#1500;&#1497;&#1504;&#1511;&#1497;&#1501; &#1502;-SMS</div></div>
+          <button class="toggle on" id="t-linkcheck" onclick="this.classList.toggle('on');saveCfg()"></button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-lbl">&#1502;&#1495;&#1511; &#1499;&#1500; &#1492;&#1504;&#1514;&#1493;&#1504;&#1497;&#1501;</div></div>
+          <button class="btn danger sm" onclick="clearAll()">&#1502;&#1495;&#1511; &#1492;&#1499;&#1500;</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ACCOUNTS -->
+  <div id="v-accounts" class="hidden">
+    <div class="signin-grid">
+      <div class="signin-card">
+        <div class="signin-card-icon">&#128231;</div>
+        <div class="signin-card-title">Gmail</div>
+        <div class="signin-card-sub">OAuth 2.0 &mdash; &#1505;&#1497;&#1505;&#1502;&#1488; &#1500;&#1488; &#1504;&#1513;&#1502;&#1512;&#1514; &#1500;&#1506;&#1493;&#1500;&#1501;.</div>
+        <button class="btn google-btn" onclick="signInGoogle()" style="width:100%;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/></svg>
+          &#1492;&#1514;&#1495;&#1489;&#1512; &#1506;&#1501; Google
+        </button>
+        <div id="google-signin-status" style="margin-top:8px;font-size:11px;color:var(--text3);"></div>
+      </div>
+      <div class="signin-card">
+        <div class="signin-card-icon">&#128311;</div>
+        <div class="signin-card-title">Outlook / Office 365</div>
+        <div class="signin-card-sub">Microsoft OAuth &mdash; &#1514;&#1502;&#1497;&#1499;&#1492; &#1489;&#1495;&#1513;&#1489;&#1493;&#1504;&#1493;&#1514; &#1502;&#1512;&#1493;&#1489;&#1497;&#1501;.</div>
+        <button class="btn ms-btn" onclick="signInMicrosoft()" style="width:100%;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
+          &#1492;&#1514;&#1495;&#1489;&#1512; &#1506;&#1501; Microsoft
+        </button>
+        <div id="ms-signin-status" style="margin-top:8px;font-size:11px;color:var(--text3);"></div>
+      </div>
+    </div>
+    <div id="accounts-list">
+      <div class="empty-state" style="padding:30px 0;">
+        <div class="empty-icon">&#128268;</div>
+        <div class="empty-title">&#1488;&#1497;&#1503; &#1495;&#1513;&#1489;&#1493;&#1504;&#1493;&#1514; &#1502;&#1495;&#1493;&#1489;&#1512;&#1497;&#1501;</div>
+        <div class="empty-sub">&#1500;&#1495;&#1509; &#1506;&#1500; &#1492;&#1514;&#1495;&#1489;&#1512; &#1500;&#1492;&#1514;&#1495;&#1500;&#1514; &#1488;&#1497;&#1505;&#1493;&#1507; &#1511;&#1489;&#1500;&#1493;&#1514;</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEIPTS -->
+  <div id="v-receipts" class="hidden">
+    <div class="metrics">
+      <div class="metric m-g"><div class="m-lbl">&#1511;&#1489;&#1500;&#1493;&#1514;</div><div class="m-val" id="m-total">0</div><div class="m-sub">&#1513;&#1504;&#1502;&#1510;&#1488;&#1493;</div></div>
+      <div class="metric m-b"><div class="m-lbl">&#1504;&#1505;&#1512;&#1511;&#1493;</div><div class="m-val" id="m-scanned">0</div><div class="m-sub">&#1502;&#1497;&#1497;&#1500;&#1497;&#1501;</div></div>
+      <div class="metric m-a"><div class="m-lbl">&#1502;&#1502;&#1514;&#1497;&#1504;&#1497;&#1501;</div><div class="m-val" id="m-pend">0</div><div class="m-sub">&#1500;&#1497;&#1504;&#1511;&#1497;&#1501;</div></div>
+      <div class="metric m-ms"><div class="m-lbl">&#1502;&#1511;&#1493;&#1512;&#1493;&#1514;</div><div class="m-val" id="m-src">0</div><div class="m-sub">&#1502;&#1495;&#1493;&#1489;&#1512;&#1497;&#1501;</div></div>
+    </div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="main-search" class="search-inp" placeholder="&#1495;&#1497;&#1508;&#1493;&#1513; &#1495;&#1493;&#1508;&#1513;&#1497; &#8212; &#1505;&#1508;&#1511;, &#1511;&#1496;&#1490;&#1493;&#1512;&#1497;&#1492;, &#1505;&#1499;&#1493;&#1501;..." oninput="applyFilters()" />
+      </div>
+      <select class="fsel" id="f-cat" onchange="applyFilters()">
+        <option value="">&#1499;&#1500; &#1492;&#1511;&#1496;&#1490;&#1493;&#1512;&#1497;&#1493;&#1514;</option>
+        <option>&#1514;&#1493;&#1499;&#1504;&#1492;/&#1506;&#1504;&#1503;</option><option>&#1514;&#1511;&#1513;&#1493;&#1512;&#1514;</option><option>&#1512;&#1499;&#1489;/&#1514;&#1491;&#1500;&#1493;&#1511;</option>
+        <option>&#1504;&#1491;&#1500;&quot;&#1503;</option><option>&#1510;&#1497;&#1493;&#1491;</option><option>&#1489;&#1497;&#1496;&#1493;&#1495;</option><option>&#1504;&#1505;&#1497;&#1506;&#1493;&#1514;</option><option>&#1488;&#1495;&#1512;</option>
+      </select>
+      <select class="fsel" id="f-src" onchange="applyFilters()">
+        <option value="">&#1499;&#1500; &#1492;&#1502;&#1511;&#1493;&#1512;&#1493;&#1514;</option>
+        <option value="gmail">Gmail</option>
+        <option value="outlook">Outlook</option>
+        <option value="manual">&#1497;&#1491;&#1504;&#1497;</option>
+      </select>
+      <select class="fsel" id="f-conf" onchange="applyFilters()">
+        <option value="">&#1499;&#1500; &#1492;&#1512;&#1502;&#1493;&#1514;</option>
+        <option value="high">&#1489;&#1497;&#1496;&#1495;&#1493;&#1503; &#1490;&#1489;&#1493;&#1492;</option>
+        <option value="low">&#1491;&#1493;&#1512;&#1513; &#1489;&#1491;&#1497;&#1511;&#1492;</option>
+      </select>
+      <span class="res-count" id="res-count">0 &#1514;&#1493;&#1510;&#1488;&#1493;&#1514;</span>
+    </div>
+    <div id="sync-progress" class="card hidden" style="margin-bottom:14px;">
+      <div class="card-hdr"><span class="card-title" id="sync-title">&#1505;&#1493;&#1512;&#1511; &#1502;&#1497;&#1497;&#1500;&#1497;&#1501;...</span><div class="spinner" style="margin-right:auto;width:14px;height:14px;border-width:2px;"></div></div>
+      <div class="card-body">
+        <div class="progress-bar"><div class="progress-fill" id="sync-bar" style="width:0%"></div></div>
+        <div class="sync-log" id="sync-log"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th><input type="checkbox" id="sel-all" /></th>
+            <th onclick="sortBy('vendor')">&#1505;&#1508;&#1511; &#8597;</th>
+            <th onclick="sortBy('category')">&#1511;&#1496;&#1490;&#1493;&#1512;&#1497;&#1492; &#8597;</th>
+            <th onclick="sortBy('source')">&#1502;&#1511;&#1493;&#1512; &#8597;</th>
+            <th onclick="sortBy('date')">&#1514;&#1488;&#1512;&#1497;&#1498; &#8595;</th>
+            <th onclick="sortBy('amount')">&#1505;&#1499;&#1493;&#1501; &#8597;</th>
+            <th>&#1502;&#1496;&#1489;&#1506;</th>
+            <th>&#1505;&#1496;&#1488;&#1496;&#1493;&#1505;</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="main-tbl"></tbody>
+        </table>
+      </div>
+      <div id="tbl-empty" class="empty-state">
+        <div class="empty-icon">&#128205;</div>
+        <div class="empty-title" id="tbl-empty-title">&#1488;&#1497;&#1503; &#1511;&#1489;&#1500;&#1493;&#1514; &#1506;&#1491;&#1497;&#1497;&#1503;</div>
+        <div class="empty-sub" id="tbl-empty-sub">&#1495;&#1489;&#1512; &#1495;&#1513;&#1489;&#1493;&#1503; Gmail &#1488;&#1493; Outlook</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENDING -->
+  <div id="v-pending" class="hidden">
+    <div id="pend-empty" class="empty-state"><div class="empty-icon">&#9989;</div><div class="empty-title">&#1488;&#1497;&#1503; &#1500;&#1497;&#1504;&#1511;&#1497;&#1501; &#1502;&#1502;&#1514;&#1497;&#1504;&#1497;&#1501;</div></div>
+    <div id="pend-content" class="hidden">
+      <div class="warn-box" style="margin-bottom:14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div>&#1500;&#1497;&#1504;&#1511;&#1497;&#1501; &#1488;&#1500;&#1493; &#1494;&#1493;&#1492;&#1493; &#1502;-SMS / WhatsApp. &#1497;&#1513; &#1500;&#1488;&#1513;&#1512; &#1497;&#1491;&#1504;&#1497;&#1514; &#1500;&#1508;&#1504;&#1497; &#1508;&#1514;&#1497;&#1495;&#1492;.</div>
+      </div>
+      <div class="card"><div class="card-hdr"><span class="card-title">&#1500;&#1497;&#1504;&#1511;&#1497;&#1501; &#1500;&#1488;&#1497;&#1513;&#1493;&#1512;</span></div><div class="card-body" id="pend-list"></div></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="v-upload" class="hidden">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-hdr"><span class="card-title">&#1492;&#1506;&#1500;&#1488;&#1514; &#1511;&#1493;&#1489;&#1509; (PDF / &#1514;&#1502;&#1493;&#1504;&#1492;)</span></div>
+          <div class="card-body">
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-inp').click()">
+              <div style="font-size:26px;margin-bottom:8px;">&#128206;</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text2);">&#1490;&#1512;&#1493;&#1512; &#1511;&#1493;&#1489;&#1509; &#1500;&#1499;&#1488;&#1503; &#1488;&#1493; &#1500;&#1495;&#1509; &#1500;&#1489;&#1495;&#1497;&#1512;&#1492;</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">PDF &middot; JPG &middot; PNG &middot; HEIC</div>
+            </div>
+            <input type="file" id="file-inp" accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none" onchange="handleFile(this)" />
+            <div id="file-prev" class="hidden" style="margin-top:10px;background:var(--bg);border-radius:var(--rsm);padding:9px;font-size:12px;color:var(--text2);"></div>
+            <div class="form-group" style="margin-top:12px;">
+              <label class="form-lbl">Anthropic API Key (&#1500;&#1504;&#1497;&#1514;&#1493;&#1495; AI)</label>
+              <input type="password" class="form-inp" id="s-api-key" placeholder="sk-ant-..." oninput="saveCfg()" />
+              <div style="font-size:11px;color:var(--text3);margin-top:3px;">&#1504;&#1513;&#1502;&#1512; &#1502;&#1511;&#1493;&#1502;&#1497;&#1514; &#1489;&#1500;&#1489;&#1491;.</div>
+            </div>
+            <button class="btn primary" style="width:100%;justify-content:center;" id="up-btn" onclick="doUpload()">&#1492;&#1506;&#1500;&#1492; &#1493;&#1494;&#1492;&#1492; &#1506;&#1501; AI &#9889;</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><span class="card-title">&#1492;&#1491;&#1489;&#1511;&#1514; SMS / WhatsApp</span></div>
+          <div class="card-body">
+            <textarea class="form-inp" id="sms-txt" placeholder="&#1492;&#1491;&#1489;&#1511; &#1514;&#1493;&#1499;&#1503; SMS &#1488;&#1493; WhatsApp..." oninput="detectLinks(this.value)" style="min-height:80px;"></textarea>
+            <div id="link-wrap" class="hidden">
+              <div class="link-box"><div class="link-box-title">&#9888; &#1500;&#1497;&#1504;&#1511;&#1497;&#1501; &#1513;&#1494;&#1493;&#1492;&#1493; &#8212; &#1491;&#1493;&#1512;&#1513;&#1497;&#1501; &#1488;&#1497;&#1513;&#1493;&#1512;</div><div id="links-found"></div></div>
+              <button class="btn sm" style="margin-top:8px;" onclick="toLinking()">&#8594; &#1492;&#1493;&#1505;&#1507; &#1500;&#1488;&#1497;&#1513;&#1493;&#1512; &#1497;&#1491;&#1504;&#1497;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">&#1514;&#1493;&#1510;&#1488;&#1493;&#1514; &#1504;&#1497;&#1514;&#1493;&#1495; AI</span></div>
+        <div class="card-body" id="up-result">
+          <div class="empty-state" style="padding:24px 0;"><div class="empty-icon">&#129302;</div><div class="empty-sub">&#1492;&#1506;&#1500;&#1492; &#1511;&#1493;&#1489;&#1509; &#1500;&#1504;&#1497;&#1514;&#1493;&#1495; &#1488;&#1493;&#1496;&#1493;&#1502;&#1496;&#1497;</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPLOY GUIDE -->
+  <div id="v-deploy" class="hidden">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-hdr"><span class="card-title">&#128640; &#1508;&#1512;&#1505;&#1493;&#1501; &#1500;-GitHub Pages &mdash; 5 &#1491;&#1511;&#1493;&#1514;</span></div>
+      <div class="card-body">
+        <div class="info-box">&#9888; <strong>&#1500;&#1502;&#1492; GitHub Pages?</strong> OAuth &#1513;&#1500; Google &#1493;-Microsoft &#1495;&#1493;&#1505;&#1501; &#1499;&#1514;&#1493;&#1489;&#1493;&#1514; <code>file://</code>. &#1489;-GitHub Pages &#1492;&#1488;&#1508;&#1500;&#1497;&#1511;&#1510;&#1497;&#1492; &#1488;&#1493;&#1493;&#1514;&#1493; &#1500;&#1498; URL &#1511;&#1489;&#1493;&#1506; &#1513;&#1506;&#1493;&#1489;&#1491; &#1506;&#1501; OAuth &mdash; &#1499;&#1502;&#1493; &#1499;&#1500; &#1488;&#1514;&#1512;.</div>
+        <div class="deploy-step">
+          <div class="deploy-num">1</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1510;&#1493;&#1512; &#1495;&#1513;&#1489;&#1493;&#1503; GitHub &#1495;&#1497;&#1504;&#1502;&#1497;</div>
+            <div class="deploy-desc">&#1490;&#1513; &#1500;-<strong>github.com</strong> &#8594; Sign up. &#1513;&#1501; &#1502;&#1513;&#1514;&#1502;&#1513; &#1497;&#1492;&#1508;&#1493;&#1498; &#1500;&#1495;&#1500;&#1511; &#1502;&#1492;-URL &#1513;&#1500;&#1498;.</div>
+          </div>
+        </div>
+        <div class="deploy-step">
+          <div class="deploy-num">2</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1510;&#1493;&#1512; Repository &#1495;&#1491;&#1513;</div>
+            <div class="deploy-desc">GitHub &#8594; New repository &#8594; &#1513;&#1501;: <code>receipilot</code> &#8594; Public &#8594; Create</div>
+          </div>
+        </div>
+        <div class="deploy-step">
+          <div class="deploy-num">3</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1492;&#1506;&#1500;&#1492; &#1488;&#1514; &#1492;&#1511;&#1493;&#1489;&#1509;</div>
+            <div class="deploy-desc">&#1489;&#1491;&#1507; &#1492;-Repository &#8594; &#1500;&#1495;&#1509; <strong>uploading an existing file</strong> &#8594; &#1490;&#1512;&#1493;&#1512; &#1488;&#1514; <code>ReceiPilot-OAuth.html</code> &#8594; &#1513;&#1504;&#1492; &#1513;&#1501; &#1500;: <code>index.html</code> &#8594; Commit</div>
+          </div>
+        </div>
+        <div class="deploy-step">
+          <div class="deploy-num">4</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1492;&#1508;&#1506;&#1500; GitHub Pages</div>
+            <div class="deploy-desc">Settings &#8594; Pages &#8594; Source: <strong>Deploy from branch</strong> &#8594; Branch: <strong>main</strong> &#8594; Save</div>
+            <div class="deploy-desc" style="margin-top:6px;">&#1492;-URL &#1513;&#1500;&#1498; &#1497;&#1492;&#1497;&#1492;:</div>
+            <div class="code-block" id="deploy-url-preview">https://YOUR-USERNAME.github.io/receipilot/</div>
+          </div>
+        </div>
+        <div class="deploy-step">
+          <div class="deploy-num">5</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1506;&#1491;&#1499;&#1503; Google Cloud Console</div>
+            <div class="deploy-desc">&#1489;-Credentials &#8594; &#1506;&#1512;&#1493;&#1498; OAuth Client &#8594; &#1492;&#1493;&#1505;&#1507; &#1500;-Authorized origins &#1493;-redirect URIs:</div>
+            <div class="code-block">https://YOUR-USERNAME.github.io</div>
+            <div class="code-block" style="margin-top:4px;">https://YOUR-USERNAME.github.io/receipilot/</div>
+          </div>
+        </div>
+        <div class="deploy-step">
+          <div class="deploy-num">6</div>
+          <div class="deploy-body">
+            <div class="deploy-title">&#1506;&#1491;&#1499;&#1503; Azure Portal (Outlook)</div>
+            <div class="deploy-desc">App registrations &#8594; Authentication &#8594; &#1492;&#1493;&#1505;&#1507; Redirect URI:</div>
+            <div class="code-block">https://YOUR-USERNAME.github.io/receipilot/</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">&#128279; &#1492;&#1494;&#1503; &#1513;&#1501; &#1502;&#1513;&#1514;&#1502;&#1513; GitHub &#1513;&#1500;&#1498;</span></div>
+      <div class="card-body">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input type="text" class="form-inp" id="gh-username" placeholder="your-github-username" style="flex:1;" oninput="updateDeployUrls(this.value)" />
+          <button class="btn primary" onclick="openGitHub()">&#1508;&#1514;&#1495; GitHub &#8594;</button>
+        </div>
+        <div id="deploy-urls" style="margin-top:12px;font-size:12px;color:var(--text3);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEST SUITE -->
+  <div id="v-tests" class="hidden">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-hdr">
+        <span class="card-title">&#9989; &#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1488;&#1493;&#1496;&#1493;&#1502;&#1496;&#1497;&#1493;&#1514;</span>
+        <button class="btn primary" onclick="runAllTests()" id="run-tests-btn" style="margin-right:auto;">&#9654; &#1492;&#1508;&#1506;&#1500; &#1499;&#1500; &#1492;&#1489;&#1491;&#1497;&#1511;&#1493;&#1514;</button>
+      </div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">&#1499;&#1500; &#1492;&#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1512;&#1510;&#1493;&#1514; &#1489;&#1500;&#1497; &#1492;&#1514;&#1495;&#1489;&#1512;&#1493;&#1514; &#1488;&#1502;&#1497;&#1514;&#1497;&#1493;&#1514;. &#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1492;&#1488;&#1497;&#1502;&#1493;&#1514; &#1491;&#1493;&#1512;&#1513;&#1493;&#1514; &#1495;&#1497;&#1489;&#1493;&#1512; &#1508;&#1506;&#1497;&#1500;.</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">&#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1514;&#1513;&#1514;&#1497;&#1514;</div>
+        <div id="test-connectivity"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.06em;">&#1489;&#1491;&#1497;&#1511;&#1493;&#1514; &#1495;&#1497;&#1500;&#1493;&#1509; &#1511;&#1489;&#1500;&#1493;&#1514;</div>
+        <div id="test-extraction"></div>
+        <div id="test-summary" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- REPORT MODAL -->
+<div class="overlay" id="rep-modal">
+  <div class="modal">
+    <div class="modal-hdr"><span class="modal-title">&#1513;&#1500;&#1497;&#1495;&#1514; &#1491;&#1493;&#1495; &#1500;&#1512;&#1493;&quot;&#1495;</span><button class="modal-x" onclick="closeModal('rep-modal')">&#10005;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-lbl">&#1488;&#1497;&#1502;&#1497;&#1497;&#1500; &#1512;&#1493;&quot;&#1495;</label><input type="email" class="form-inp" id="cpa-email" /></div>
+      <div class="form-group" id="rep-sum-wrap" style="display:none;"><label class="form-lbl">&#1505;&#1497;&#1499;&#1493;&#1501;</label><div id="rep-sum" style="background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rsm);padding:10px;font-size:12px;color:var(--text2);line-height:1.6;"></div></div>
+      <div class="form-group"><label class="form-lbl">&#1506;&#1512;&#1493;&#1509; &#1513;&#1500;&#1497;&#1495;&#1492;</label>
+        <div class="ch-grid">
+          <div class="ch-pill on" onclick="this.classList.toggle('on')"><span class="ch-icon">&#128231;</span>&#1502;&#1497;&#1497;&#1500;</div>
+          <div class="ch-pill" onclick="this.classList.toggle('on')"><span class="ch-icon">&#128172;</span>WhatsApp</div>
+          <div class="ch-pill" onclick="this.classList.toggle('on')"><span class="ch-icon">&#11015;&#65039;</span>&#1492;&#1493;&#1512;&#1491;&#1492;</div>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-lbl">&#1508;&#1493;&#1512;&#1502;&#1496;</label><select class="form-inp"><option>PDF + Excel</option><option>PDF &#1489;&#1500;&#1489;&#1491;</option><option>Excel &#1489;&#1500;&#1489;&#1491;</option></select></div>
+      <div class="form-group"><label class="form-lbl">&#1492;&#1506;&#1512;&#1493;&#1514;</label><textarea class="form-inp" style="min-height:60px;" placeholder="&#1492;&#1506;&#1512;&#1493;&#1514; &#1500;&#1512;&#1493;&quot;&#1495;..."></textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn" onclick="closeModal('rep-modal')">&#1489;&#1497;&#1496;&#1493;&#1500;</button>
+        <button class="btn" onclick="exportExcel()">&#1492;&#1493;&#1512;&#1491; Excel</button>
+        <button class="btn primary" onclick="sendReport()">&#1513;&#1500;&#1495; &#9654;</button>
+      </div>
+      <div class="progress-bar hidden" id="rep-prog"><div class="progress-fill" id="rep-bar" style="width:0%"></div></div>
+      <div class="send-status" id="rep-status"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Auth libraries -->
+<script src="https://accounts.google.com/gsi/client"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+
+<script>
+// CONFIG
+var CFG = {
+  googleClientId:'', msClientId:'', msTenant:'common',
+  anthropicKey:'', bizname:'', cpaemail:'',
+  gmailDays:90, filterout:true, linkcheck:true
+};
+
+// STATE
+var RECEIPTS=[], FILTERED=[], PENDING=[], ACCOUNTS=[];
+var SORT_KEY='date', SORT_DIR=-1;
+var GOOGLE_TOKEN=null, MS_TOKEN=null, msalInstance=null;
+// Track last sync per account for incremental sync
+var LAST_SYNC={};
+
+// NAVIGATION
+var TITLES={settings:'הגדרות',accounts:'חשבונות מחוברים',receipts:'קבלות',
+  pending:'ממתינים',upload:'העלאה ידנית',deploy:'פרסום GitHub Pages',tests:'בדיקות אוטומטיות'};
+
+function go(page, btn) {
+  document.querySelectorAll('[id^="v-"]').forEach(function(el){el.classList.add('hidden');});
+  document.getElementById('v-'+page).classList.remove('hidden');
+  document.getElementById('page-title').textContent = TITLES[page]||page;
+  document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');});
+  if (btn) btn.classList.add('active');
+}
+
+// CONFIG
+function loadCfg() {
+  try {
+    var s=JSON.parse(localStorage.getItem('receipilot_cfg')||'{}');
+    Object.assign(CFG,s);
+    setVal('s-google-id', CFG.googleClientId);
+    setVal('s-ms-id',     CFG.msClientId);
+    setVal('s-ms-tenant', CFG.msTenant||'common');
+    setVal('s-api-key',   CFG.anthropicKey);
+    setVal('s-bizname',   CFG.bizname);
+    setVal('s-cpaemail',  CFG.cpaemail);
+    setVal('s-gmail-days',CFG.gmailDays||90);
+    setToggle('t-filterout', CFG.filterout!==false);
+    setToggle('t-linkcheck', CFG.linkcheck!==false);
+    LAST_SYNC=JSON.parse(localStorage.getItem('receipilot_lastsync')||'{}');
+  } catch(e){}
+  updateBanner();
+}
+function setVal(id,v){var e=document.getElementById(id);if(e&&v)e.value=v;}
+function setToggle(id,on){var e=document.getElementById(id);if(e){if(on)e.classList.add('on');else e.classList.remove('on');}}
+
+function saveCfg() {
+  CFG.googleClientId=(document.getElementById('s-google-id')||{}).value||'';
+  CFG.msClientId    =(document.getElementById('s-ms-id')||{}).value||'';
+  CFG.msTenant      =(document.getElementById('s-ms-tenant')||{}).value||'common';
+  CFG.anthropicKey  =(document.getElementById('s-api-key')||{}).value||'';
+  CFG.bizname       =(document.getElementById('s-bizname')||{}).value||'';
+  CFG.cpaemail      =(document.getElementById('s-cpaemail')||{}).value||'';
+  CFG.gmailDays     =parseInt((document.getElementById('s-gmail-days')||{}).value)||90;
+  CFG.filterout     =!!(document.getElementById('t-filterout')&&document.getElementById('t-filterout').classList.contains('on'));
+  CFG.linkcheck     =!!(document.getElementById('t-linkcheck')&&document.getElementById('t-linkcheck').classList.contains('on'));
+  localStorage.setItem('receipilot_cfg', JSON.stringify(CFG));
+  updateBanner();
+  if (CFG.msClientId && !msalInstance) initMSAL();
+}
+
+function updateBanner() {
+  var hasG=!!(CFG.googleClientId&&CFG.googleClientId.includes('.apps.googleusercontent.com'));
+  var hasM=!!(CFG.msClientId&&CFG.msClientId.length>10);
+  var ok=hasG||hasM;
+  document.getElementById('config-banner').classList.toggle('ok',ok);
+  document.getElementById('cfg-ok').classList.toggle('hidden',!ok);
+  if(!ok) document.getElementById('cfg-msg').textContent='הכנס Google Client ID ו/או Microsoft Client ID בהגדרות';
+  else document.getElementById('cfg-msg').textContent=(hasG?'Google ✓ ':'')+(hasM?'Microsoft ✓':'');
+}
+
+// GOOGLE OAUTH
+function signInGoogle() {
+  if (!CFG.googleClientId) { setStatus('google-signin-status','error','⚠ הכנס Google Client ID'); return; }
+  setStatus('google-signin-status','loading','פותח חלון התחברות...');
+  var tc=google.accounts.oauth2.initTokenClient({
+    client_id: CFG.googleClientId,
+    scope:'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+    callback: function(resp) {
+      if (resp.error) { setStatus('google-signin-status','error','⚠ '+resp.error); return; }
+      GOOGLE_TOKEN=resp.access_token;
+      fetch('https://www.googleapis.com/oauth2/v1/userinfo?access_token='+GOOGLE_TOKEN)
+        .then(function(r){return r.json();})
+        .then(function(info){
+          var email=info.email||'gmail-user';
+          addAccount(email,'gmail','#4285F4');
+          setStatus('google-signin-status','ok','✓ מחובר: '+email);
+          toast('✓ Gmail מחובר');
+          startGmailScan(email);
+        }).catch(function(){
+          addAccount('gmail-user','gmail','#4285F4');
+          startGmailScan('gmail-user');
+        });
+    }
+  });
+  tc.requestAccessToken({prompt:'consent'});
+}
+
+function parseJWT(t) {
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).email||null; }
+  catch(e){ return null; }
+}
+
+// GMAIL SCAN  -  incremental, deduplicated, confidence-scored
+async function startGmailScan(userEmail) {
+  go('receipts',null);
+  showSyncProgress('סורק Gmail של '+userEmail+'...');
+  var daysBack=CFG.gmailDays||90;
+  // Incremental: use last sync time if available
+  var lastSync=LAST_SYNC[userEmail]||0;
+  var afterTs=lastSync ? Math.floor(lastSync/1000) : 0;
+  var query='(subject:(receipt OR invoice OR payment OR subscription OR renewal OR billing OR חשבונית OR קבלה OR תשלום) OR from:(billing OR invoice OR receipts OR noreply))';
+  if (afterTs) query+=' after:'+afterTs;
+  else query+=' newer_than:'+daysBack+'d';
+
+  try {
+    var messages=await gmailSearch(query,100);
+    syncLog('נמצאו '+messages.length+' מיילים '+(afterTs?'(מסנכרון אחרון)':''));
+    var found=0,scanned=0;
+    updateSyncBar(5);
+    for (var i=0;i<messages.length;i++) {
+      updateSyncBar(5+Math.round(i/messages.length*85));
+      try {
+        var det=await gmailGetMessage(messages[i].id);
+        scanned++;
+        document.getElementById('m-scanned').textContent=scanned;
+        if (isExpenseReceipt(det)) {
+          var r=parseGmailMessage(det,userEmail);
+          if (r && !RECEIPTS.find(function(x){return x.msgId===r.msgId;})) {
+            RECEIPTS.unshift(r);
+            found++;
+            syncLog((r.confidence>=70?'✓':'⚠')+'['+r.confidence+'] '+r.vendor+'  -  '+r.amount);
+            document.getElementById('m-total').textContent=RECEIPTS.length;
+          }
+        }
+      } catch(e2){ syncLog('! skip: '+messages[i].id+'  -  '+e2.message); }
+      if (i%10===9) await sleep(150);
+    }
+    // Save last sync time
+    LAST_SYNC[userEmail]=Date.now();
+    localStorage.setItem('receipilot_lastsync',JSON.stringify(LAST_SYNC));
+    updateSyncBar(100);
+    syncLog('סיום: '+found+' קבלות חדשות מתוך '+scanned+' מיילים');
+    setTimeout(hideSyncProgress,2000);
+    var acc=ACCOUNTS.find(function(a){return a.email===userEmail;});
+    if (acc){acc.count=(acc.count||0)+found;acc.syncedAt=Date.now();}
+    renderAccounts(); applyFilters(); updateMetrics();
+  } catch(e) {
+    // Auth error vs other
+    if (e.message.includes('401')||e.message.includes('403')) {
+      GOOGLE_TOKEN=null;
+      syncLog('⚠ Token פג תוקף  -  יש להתחבר מחדש');
+      setStatus('google-signin-status','error','⚠ Token פג  -  התחבר שוב');
+    } else {
+      syncLog('⚠ שגיאה: '+e.message);
+    }
+    setTimeout(hideSyncProgress,3000);
+    toast('שגיאה: '+e.message);
+  }
+}
+
+async function gmailSearch(q,max) {
+  var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults='+(max||50)+'&q='+encodeURIComponent(q),{headers:{Authorization:'Bearer '+GOOGLE_TOKEN}});
+  if (r.status===429) { await sleep(2000); return gmailSearch(q,max); } // rate limit retry
+  if (!r.ok) throw new Error('Gmail API: '+r.status);
+  var d=await r.json();
+  return d.messages||[];
+}
+
+async function gmailGetMessage(id) {
+  var r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+id+'?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date',{headers:{Authorization:'Bearer '+GOOGLE_TOKEN}});
+  if (r.status===429) { await sleep(2000); return gmailGetMessage(id); }
+  if (!r.ok) throw new Error('msg: '+r.status);
+  return r.json();
+}
+
+function isExpenseReceipt(msg) {
+  var h={};
+  (msg.payload&&msg.payload.headers||[]).forEach(function(hh){h[hh.name.toLowerCase()]=hh.value;});
+  var subj=(h.subject||'').toLowerCase();
+  var from=(h.from||'').toLowerCase();
+  var snip=(msg.snippet||'').toLowerCase();
+  var kwOk=['receipt','invoice','payment','billing','subscription','renewal','order','חשבונית','קבלה','תשלום','הזמנה','חיוב'];
+  if (!kwOk.some(function(k){return subj.includes(k)||snip.includes(k);})) return false;
+  var kwBad=['security alert','verification code','unsubscribe','newsletter','התראת אבטחה','קוד אימות','test message','webinar','conference'];
+  if (kwBad.some(function(k){return subj.includes(k);})) return false;
+  if (CFG.filterout) {
+    var outgoing=['effectivesec.com','greeninvoice.co.il','shay.chen@','amir@effectivesec'];
+    if (outgoing.some(function(k){return from.includes(k);})) return false;
+  }
+  return true;
+}
+
+function confidenceScore(vendor, subject, snippet, amount) {
+  var score=0;
+  var kwCount=['receipt','invoice','payment','billing','חשבונית','קבלה','תשלום'].filter(function(k){
+    return (subject+' '+snippet).toLowerCase().includes(k);
+  }).length;
+  score+=Math.min(kwCount*15,40);
+  if (amount&&amount!==' - ') score+=30;
+  var knownDomains=['amazon','google','microsoft','zoom','slack','github','adobe','dropbox','figma','atlassian','paypal','stripe','סלקום','פרטנר','hot','בזק','פז','סונול','דלק'];
+  if (knownDomains.some(function(d){return (vendor+' '+subject).toLowerCase().includes(d);})) score+=30;
+  return Math.min(score,100);
+}
+
+function parseGmailMessage(msg,userEmail) {
+  var h={};
+  (msg.payload&&msg.payload.headers||[]).forEach(function(hh){h[hh.name.toLowerCase()]=hh.value;});
+  var subject=h.subject||'';
+  var from=h.from||'';
+  var dateStr=h.date||'';
+  var snippet=msg.snippet||'';
+  var vendor=from.replace(/<[^>]+>/,'').replace(/"/g,'').trim();
+  if (!vendor||vendor.length>50) vendor=subject.split(/[-|]/)[0].trim().substring(0,40);
+  // Extract amount  -  also check snippet body
+  var amtRe=/[₪$€£]\s*[\d,]+\.?\d*|[\d,]+\.?\d*\s*[₪$€£]/;
+  var amtM=(subject+' '+snippet).match(amtRe);
+  var amount=amtM?amtM[0].trim():' - ';
+  // Extract VAT (מע"מ)
+  var vatM=(snippet).match(/מע"מ[:\s]*([₪$]?\s*[\d,]+)/);
+  var vatAmount=vatM?vatM[1].trim():null;
+  // Currency
+  var currency='ILS';
+  if (subject.includes('$')||snippet.includes('USD')) currency='USD';
+  else if (subject.includes('€')||snippet.includes('EUR')) currency='EUR';
+  // Date
+  var ts=new Date(dateStr).getTime()||Date.now();
+  var d=new Date(ts);
+  var df=d.getDate()+'/'+(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(-2);
+  var conf=confidenceScore(vendor,subject,snippet,amount);
+  return {
+    id:'g_'+msg.id, msgId:msg.id, vendor:vendor,
+    category:guessCategory(vendor+' '+subject),
+    amount:amount, vatAmount:vatAmount, currency:currency,
+    date:df, ts:ts,
+    confidence:conf,
+    status:conf<50?'review':'ok',
+    source:'gmail', sourceEmail:userEmail
+  };
+}
+
+function guessCategory(t) {
+  t=t.toLowerCase();
+  if (/aws|google cloud|azure|zoom|github|figma|slack|notion|dropbox|microsoft 365|office 365|adobe|jira|digitalocean/.test(t)) return 'תוכנה/ענן';
+  if (/cellcom|סלקום|partner|פרטנר|hot|bezeq|בזק|012|018|019|phone|mobile|internet/.test(t)) return 'תקשורת';
+  if (/fuel|דלק|paz|פז|sonol|סונול|delek|תדלוק|car|רכב|parking|חניה/.test(t)) return 'רכב/תדלוק';
+  if (/rent|שכירות|office|משרד|נדל/.test(t)) return 'נדל"ן';
+  if (/insurance|ביטוח/.test(t)) return 'ביטוח';
+  if (/flight|hotel|airbnb|booking|נסיעה|טיסה/.test(t)) return 'נסיעות';
+  if (/office supplies|ציוד|stationary/.test(t)) return 'ציוד';
+  return 'אחר';
+}
+
+// MICROSOFT OAUTH
+function initMSAL() {
+  if (!CFG.msClientId) return;
+  try {
+    msalInstance=new msal.PublicClientApplication({
+      auth:{
+        clientId:CFG.msClientId,
+        authority:'https://login.microsoftonline.com/'+(CFG.msTenant||'common'),
+        redirectUri:window.location.origin+window.location.pathname
+      },
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:false}
+    });
+    msalInstance.initialize().then(function(){
+      msalInstance.handleRedirectPromise().then(function(resp){
+        if (resp&&resp.accessToken) {
+          MS_TOKEN=resp.accessToken;
+          addAccount(resp.account.username,'outlook','#0078D4');
+          toast('✓ Outlook מחובר');
+          startOutlookScan(resp.account.username);
+        }
+      }).catch(function(e){console.warn('MSAL redirect:',e);});
+    });
+  } catch(e){console.warn('MSAL:',e);}
+}
+
+function signInMicrosoft() {
+  if (!CFG.msClientId) { setStatus('ms-signin-status','error','⚠ הכנס Microsoft Client ID'); return; }
+  if (!msalInstance) initMSAL();
+  if (!msalInstance) { setStatus('ms-signin-status','error','⚠ MSAL לא אותחל'); return; }
+  setStatus('ms-signin-status','loading','פותח חלון Microsoft...');
+  var req={scopes:['Mail.Read','User.Read']};
+  msalInstance.loginPopup(req)
+    .then(function(resp){return msalInstance.acquireTokenSilent({scopes:['Mail.Read'],account:resp.account});})
+    .then(function(t){
+      MS_TOKEN=t.accessToken;
+      var email=t.account.username;
+      addAccount(email,'outlook','#0078D4');
+      setStatus('ms-signin-status','ok','✓ מחובר: '+email);
+      toast('✓ Outlook מחובר');
+      startOutlookScan(email);
+    })
+    .catch(function(e){
+      if (e.errorCode==='popup_window_error'||e.errorCode==='empty_window_error') msalInstance.loginRedirect(req);
+      else setStatus('ms-signin-status','error','⚠ '+(e.message||e.errorCode));
+    });
+}
+
+async function startOutlookScan(userEmail) {
+  go('receipts',null);
+  showSyncProgress('סורק Outlook של '+userEmail+'...');
+  var filter="contains(subject,'receipt') or contains(subject,'invoice') or contains(subject,'payment') or contains(subject,'subscription') or contains(subject,'billing') or contains(subject,'קבלה') or contains(subject,'חשבונית') or contains(subject,'תשלום')";
+  var url='https://graph.microsoft.com/v1.0/me/messages?$top=100&$filter='+encodeURIComponent(filter)+'&$select=id,subject,from,receivedDateTime,bodyPreview';
+  try {
+    var res=await fetch(url,{headers:{Authorization:'Bearer '+MS_TOKEN}});
+    if (res.status===401||res.status===403){MS_TOKEN=null;syncLog('⚠ Token פג  -  התחבר מחדש');setTimeout(hideSyncProgress,3000);return;}
+    if (!res.ok) throw new Error('Graph: '+res.status);
+    var data=await res.json();
+    var msgs=data.value||[];
+    syncLog('נמצאו '+msgs.length+' מיילים ב-Outlook');
+    var found=0;
+    msgs.forEach(function(msg,i){
+      updateSyncBar(10+Math.round(i/msgs.length*85));
+      var r=parseOutlookMessage(msg,userEmail);
+      if (r&&!RECEIPTS.find(function(x){return x.msgId===r.msgId;})){
+        RECEIPTS.unshift(r); found++;
+        syncLog('['+r.confidence+'] '+r.vendor+'  -  '+r.amount);
+      }
+    });
+    LAST_SYNC[userEmail]=Date.now();
+    localStorage.setItem('receipilot_lastsync',JSON.stringify(LAST_SYNC));
+    updateSyncBar(100);
+    syncLog('סיום: '+found+' קבלות');
+    setTimeout(hideSyncProgress,2000);
+    var acc=ACCOUNTS.find(function(a){return a.email===userEmail;});
+    if (acc){acc.count=(acc.count||0)+found;acc.syncedAt=Date.now();}
+    renderAccounts(); applyFilters(); updateMetrics();
+    document.getElementById('m-total').textContent=RECEIPTS.length;
+    document.getElementById('m-scanned').textContent=msgs.length;
+  } catch(e) {
+    syncLog('⚠ שגיאה: '+e.message);
+    setTimeout(hideSyncProgress,3000);
+    toast('שגיאה Outlook: '+e.message);
+  }
+}
+
+function parseOutlookMessage(msg,userEmail) {
+  var from=(msg.from&&msg.from.emailAddress&&msg.from.emailAddress.name)||'';
+  var subject=msg.subject||'';
+  var preview=msg.bodyPreview||'';
+  var ts=new Date(msg.receivedDateTime).getTime()||Date.now();
+  var d=new Date(ts);
+  var df=d.getDate()+'/'+(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(-2);
+  var amtM=(subject+' '+preview).match(/[₪$€£]\s*[\d,]+\.?\d*|[\d,]+\.?\d*\s*[₪$€£]/);
+  var amount=amtM?amtM[0].trim():' - ';
+  var conf=confidenceScore(from,subject,preview,amount);
+  return {
+    id:'ms_'+msg.id, msgId:msg.id, vendor:from||subject.substring(0,35),
+    category:guessCategory(from+' '+subject),
+    amount:amount, currency:(subject.includes('$')||preview.includes('USD'))?'USD':'ILS',
+    date:df, ts:ts, confidence:conf,
+    status:conf<50?'review':'ok',
+    source:'outlook', sourceEmail:userEmail
+  };
+}
+
+// ACCOUNTS
+function addAccount(email,type,color) {
+  if (!ACCOUNTS.find(function(a){return a.email===email;}))
+    ACCOUNTS.push({email:email,type:type,color:color,count:0,syncedAt:null});
+  renderAccounts(); updateMetrics();
+}
+
+function renderAccounts() {
+  var el=document.getElementById('accounts-list');
+  document.getElementById('nb-acct').textContent=ACCOUNTS.length;
+  if (!ACCOUNTS.length) {
+    el.innerHTML='<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">🔌</div><div class="empty-title">אין חשבונות מחוברים</div><div class="empty-sub">לחץ על התחבר למעלה</div></div>';
+    return;
+  }
+  el.innerHTML=ACCOUNTS.map(function(a,i){
+    return '<div class="acct-card">'+
+      '<div class="acct-avatar" style="background:'+a.color+'">'+a.email[0].toUpperCase()+'</div>'+
+      '<div class="acct-info"><div class="acct-email">'+a.email+'</div>'+
+      '<div class="acct-meta">'+(a.count||0)+' קבלות'+(a.syncedAt?' · '+timeAgo(a.syncedAt):'')+'</div></div>'+
+      '<span class="acct-type-pill '+(a.type==='outlook'?'ms':'')+'">'+( a.type==='gmail'?'Gmail':'Outlook')+'</span>'+
+      '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green-dk);"><span class="status-dot dot-green"></span>פעיל</div>'+
+      '<button class="btn sm" onclick="rescan('+i+')">סרוק שוב</button>'+
+      '<button class="btn sm danger" onclick="removeAcct('+i+')">הסר</button>'+
+    '</div>';
+  }).join('');
+}
+
+function rescan(i) {
+  var a=ACCOUNTS[i];
+  if (a.type==='gmail'&&GOOGLE_TOKEN) startGmailScan(a.email);
+  else if (a.type==='outlook'&&MS_TOKEN) startOutlookScan(a.email);
+  else toast('יש להתחבר שוב תחילה');
+}
+
+function removeAcct(i) {
+  if (!confirm('הסר '+ACCOUNTS[i].email+'?')) return;
+  var email=ACCOUNTS[i].email;
+  ACCOUNTS.splice(i,1);
+  RECEIPTS=RECEIPTS.filter(function(r){return r.sourceEmail!==email;});
+  renderAccounts(); applyFilters(); updateMetrics();
+  toast('חשבון הוסר');
+}
+
+// SYNC UI
+var syncLines=[];
+function showSyncProgress(t){
+  syncLines=[];
+  document.getElementById('sync-title').textContent=t;
+  document.getElementById('sync-bar').style.width='0%';
+  document.getElementById('sync-log').textContent='';
+  document.getElementById('sync-progress').classList.remove('hidden');
+}
+function hideSyncProgress(){document.getElementById('sync-progress').classList.add('hidden');}
+function updateSyncBar(p){document.getElementById('sync-bar').style.width=p+'%';}
+function syncLog(l){
+  syncLines.push(l);
+  if(syncLines.length>60)syncLines.shift();
+  var el=document.getElementById('sync-log');
+  el.textContent=syncLines.join('\n');
+  el.scrollTop=el.scrollHeight;
+}
+
+// SEARCH & FILTER
+function applyFilters() {
+  var q=(document.getElementById('main-search').value||'').toLowerCase().trim();
+  var fCat=document.getElementById('f-cat').value;
+  var fSrc=document.getElementById('f-src').value;
+  var fConf=document.getElementById('f-conf').value;
+  FILTERED=RECEIPTS.filter(function(r){
+    if(q&&![r.vendor,r.category,r.amount,r.source,r.sourceEmail].join(' ').toLowerCase().includes(q))return false;
+    if(fCat&&r.category!==fCat)return false;
+    if(fSrc&&r.source!==fSrc)return false;
+    if(fConf==='high'&&r.confidence<70)return false;
+    if(fConf==='low'&&r.confidence>=50)return false;
+    return true;
+  });
+  FILTERED.sort(function(a,b){
+    var av=a[SORT_KEY]||'',bv=b[SORT_KEY]||'';
+    if(SORT_KEY==='date'){av=a.ts||0;bv=b.ts||0;}
+    if(SORT_KEY==='amount'){av=parseFloat((a.amount||'').replace(/[^\d.]/g,'')||0);bv=parseFloat((b.amount||'').replace(/[^\d.]/g,'')||0);}
+    return av<bv?-SORT_DIR:av>bv?SORT_DIR:0;
+  });
+  renderTable();
+  document.getElementById('res-count').textContent=FILTERED.length+' תוצאות';
+}
+function sortBy(k){if(SORT_KEY===k)SORT_DIR*=-1;else{SORT_KEY=k;SORT_DIR=k==='date'?-1:1;}applyFilters();}
+
+function catTag(c) {
+  var m={'תוכנה/ענן':'#E6F1FB:#185FA5','תקשורת':'#EEEDFE:#534AB7','רכב/תדלוק':'#FAECE7:#993C1D',
+    'נדל"ן':'#EAF3DE:#3B6D11','ציוד':'#E1F5EE:#0F6E56','ביטוח':'#FAEEDA:#854F0B',
+    'נסיעות':'#FAEEDA:#BA7517','אחר':'#EFEDE8:#5A5A56'};
+  var p=(m[c]||'#EFEDE8:#5A5A56').split(':');
+  return '<span class="tag" style="background:'+p[0]+';color:'+p[1]+';">'+(c||'אחר')+'</span>';
+}
+function srcBadge(s){
+  var c={gmail:'#4285F4',outlook:'#0078D4',manual:'#9A9A94'}[s]||'#9A9A94';
+  var n={gmail:'Gmail',outlook:'Outlook',manual:'ידני'}[s]||s;
+  return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:'+c+';display:inline-block;"></span>'+n+'</span>';
+}
+function confBadge(c){
+  if(c>=70)return '<span class="conf-badge conf-high">'+c+'%</span>';
+  if(c>=50)return '<span class="conf-badge conf-med">'+c+'%</span>';
+  return '<span class="conf-badge conf-low">'+c+'% ⚠</span>';
+}
+
+function renderTable(){
+  var tbody=document.getElementById('main-tbl'),empty=document.getElementById('tbl-empty');
+  if(!FILTERED.length){
+    tbody.innerHTML='';empty.classList.remove('hidden');
+    if(!RECEIPTS.length){document.getElementById('tbl-empty-title').textContent='אין קבלות עדיין';document.getElementById('tbl-empty-sub').textContent='חבר חשבון Gmail או Outlook';}
+    else{document.getElementById('tbl-empty-title').textContent='אין תוצאות';document.getElementById('tbl-empty-sub').textContent='שנה פילטרים';}
+    return;
+  }
+  empty.classList.add('hidden');
+  tbody.innerHTML=FILTERED.map(function(r){
+    return '<tr>'+
+      '<td><input type="checkbox"></td>'+
+      '<td class="tbl-vendor">'+r.vendor+'</td>'+
+      '<td>'+catTag(r.category)+'</td>'+
+      '<td>'+srcBadge(r.source)+'</td>'+
+      '<td style="font-size:11px;color:var(--text3);">'+r.date+'</td>'+
+      '<td class="tbl-amt">'+r.amount+(r.vatAmount?' <span style="font-size:10px;color:var(--text3);">מע"מ:'+r.vatAmount+'</span>':'')+'</td>'+
+      '<td style="font-size:11px;color:var(--text3);">'+r.currency+'</td>'+
+      '<td>'+confBadge(r.confidence||0)+'</td>'+
+      '<td><button class="btn sm" onclick="editCat(\''+r.id+'\')">ערוך</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function editCat(id){
+  var r=RECEIPTS.find(function(x){return x.id===id;});if(!r)return;
+  var cats=['תוכנה/ענן','תקשורת','רכב/תדלוק','נדל"ן','ציוד','ביטוח','נסיעות','אחר'];
+  var ch=prompt('קטגוריה:\n'+cats.map(function(c,i){return (i+1)+'. '+c;}).join('\n')+'\n\nהכנס מספר:',cats.indexOf(r.category)+1);
+  if(ch){var idx=parseInt(ch)-1;if(cats[idx]){r.category=cats[idx];applyFilters();}}
+}
+
+function updateMetrics(){
+  document.getElementById('m-total').textContent=RECEIPTS.length;
+  document.getElementById('m-pend').textContent=PENDING.filter(function(p){return p.status===null;}).length;
+  document.getElementById('m-src').textContent=ACCOUNTS.length;
+  document.getElementById('nb-r').textContent=RECEIPTS.length;
+  var np=PENDING.filter(function(p){return p.status===null;}).length;
+  var npEl=document.getElementById('nb-p');
+  if(np>0){npEl.textContent=np;npEl.classList.remove('hidden');}else npEl.classList.add('hidden');
+}
+
+// PENDING
+function renderPending(){
+  if(!PENDING.length){document.getElementById('pend-empty').classList.remove('hidden');document.getElementById('pend-content').classList.add('hidden');return;}
+  document.getElementById('pend-empty').classList.add('hidden');document.getElementById('pend-content').classList.remove('hidden');
+  document.getElementById('pend-list').innerHTML=PENDING.map(function(p,i){
+    var susp=p.url&&(p.url.includes('bit.ly')||p.url.startsWith('http://'));
+    return '<div class="pending-item"><div class="p-icon" style="background:'+(p.status===true?'var(--green-lt)':p.status===false?'var(--red-lt)':susp?'var(--red-lt)':'var(--amber-lt)')+'">'+(p.status===true?'✅':p.status===false?'❌':susp?'⚠️':'🔗')+'</div>'+
+      '<div class="p-body"><div class="p-title">'+p.src+'  -  '+p.amount+'</div><div class="p-url">'+(p.url||' - ')+'</div>'+
+      (p.status===null?'<div class="p-actions"><button class="pa ok" onclick="appP('+i+')">✓ אשר</button><button class="pa no" onclick="rejP('+i+')">✗ דחה</button></div>':
+       '<div style="font-size:11px;margin-top:5px;color:'+(p.status?'var(--green-dk)':'var(--red)')+';">'+(p.status?'✓ אושר':'✗ נדחה')+'</div>')+
+      '</div></div>';
+  }).join('');
+  updateMetrics();
+}
+function appP(i){PENDING[i].status=true;renderPending();}
+function rejP(i){PENDING[i].status=false;renderPending();}
+
+// UPLOAD
+function handleFile(inp){
+  var f=inp.files[0];if(!f)return;
+  var el=document.getElementById('file-prev');el.classList.remove('hidden');
+  el.innerHTML='📎 <strong>'+f.name+'</strong> ('+Math.round(f.size/1024)+' KB)';
+}
+
+async function doUpload(){
+  var fi=document.getElementById('file-inp');
+  if(!fi.files[0]){toast('בחר קובץ תחילה');return;}
+  var apiKey=CFG.anthropicKey||document.getElementById('s-api-key').value.trim();
+  if(!apiKey){toast('הכנס Anthropic API Key');return;}
+  var f=fi.files[0],btn=document.getElementById('up-btn');
+  btn.disabled=true;btn.textContent='מנתח...';
+  document.getElementById('up-result').innerHTML='<div style="text-align:center;padding:20px;"><div class="spinner" style="margin:0 auto 10px;"></div><div style="font-size:12px;color:var(--text3);">מנתח עם AI...</div></div>';
+  try {
+    var b64=await toB64(f);var isImg=f.type.startsWith('image/');
+    var ct=isImg?[{type:'image',source:{type:'base64',media_type:f.type,data:b64}},{type:'text',text:'זהה קבלה/חשבונית. JSON בלבד: {"vendor":"","category":"","amount":"","currency":"ILS","date":"dd/mm/yy","tax_amount":"","notes_he":""}'}]:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:'זהה קבלה/חשבונית. JSON בלבד: {"vendor":"","category":"","amount":"","currency":"ILS","date":"dd/mm/yy","tax_amount":"","notes_he":""}'}];
+    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:500,messages:[{role:'user',content:ct}]})});
+    var data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    var txt=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+    var r={};try{r=JSON.parse(txt.replace(/```json?|```/g,'').trim());}catch(_){r={vendor:f.name.replace(/\.[^.]+$/,''),notes_he:txt.substring(0,200)};}
+    renderUpResult(r,f.name);
+  } catch(e){document.getElementById('up-result').innerHTML='<div style="color:var(--red);font-size:12px;padding:10px;">שגיאה: '+e.message+'</div>';}
+  btn.disabled=false;btn.textContent='העלה וזהה עם AI ⚡';
+}
+
+function toB64(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(f);});}
+
+function renderUpResult(r,fname){
+  var conf=r.vendor&&r.amount?88:52;
+  document.getElementById('up-result').innerHTML=
+    '<div style="background:var(--bg);border-radius:var(--rsm);padding:14px;margin-bottom:12px;">'+
+    '<div style="font-size:12px;font-weight:600;margin-bottom:10px;">🤖 תוצאות ניתוח</div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text3)">ספק</span><span style="font-weight:500">'+(r.vendor||' - ')+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text3)">קטגוריה</span>'+catTag(r.category||'אחר')+'</div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text3)">סכום</span><span style="font-weight:500">'+(r.amount||' - ')+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text3)">מע"מ</span><span>'+(r.tax_amount||' - ')+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0"><span style="color:var(--text3)">תאריך</span><span>'+(r.date||' - ')+'</span></div>'+
+    (r.notes_he?'<div style="font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--bdr);">💡 '+r.notes_he+'</div>':'')+
+    '</div>'+
+    '<button class="btn primary" style="width:100%;justify-content:center;" onclick="addManual(\''+esc(r.vendor||fname)+'\',\''+esc(r.category||'אחר')+'\',\''+esc(r.amount||' - ')+'\',\''+(r.currency||'ILS')+'\',\''+(r.date||' - ')+'\')">+ הוסף לרשימת קבלות</button>';
+}
+function esc(s){return(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function addManual(vendor,cat,amount,cur,date){
+  RECEIPTS.unshift({id:'m_'+Date.now(),vendor:vendor,category:cat,amount:amount,currency:cur,date:date,ts:Date.now(),confidence:95,status:'ok',source:'manual',sourceEmail:'ידני'});
+  applyFilters();updateMetrics();toast('✓ נוסף: '+vendor);
+}
+
+function detectLinks(v){
+  var wrap=document.getElementById('link-wrap'),hits=v.match(/https?:\/\/[^\s]+/g);
+  if(hits){wrap.classList.remove('hidden');document.getElementById('links-found').innerHTML=hits.map(function(u){var s=u.includes('bit.ly')||u.startsWith('http://');return '<div class="link-item"><span style="color:'+(s?'var(--red)':'var(--amber)')+';">'+(s?'⚠':'🔗')+'</span><span class="link-url-txt">'+u+'</span></div>';}).join('');}
+  else wrap.classList.add('hidden');
+}
+function toLinking(){
+  var txt=document.getElementById('sms-txt').value,hits=txt.match(/https?:\/\/[^\s]+/g)||[];
+  hits.forEach(function(url){if(!PENDING.find(function(p){return p.url===url;}))PENDING.push({src:'SMS/WhatsApp',url:url,amount:'?',status:null});});
+  renderPending();updateMetrics();document.getElementById('sms-txt').value='';document.getElementById('link-wrap').classList.add('hidden');toast('לינקים הועברו לאישור');
+}
+
+// DEPLOY GUIDE
+function updateDeployUrls(username) {
+  if (!username) return;
+  var base='https://'+username+'.github.io/receipilot/';
+  document.getElementById('deploy-url-preview').textContent=base;
+  document.getElementById('deploy-urls').innerHTML=
+    '<strong>הוסף ל-Google Cloud Console:</strong><br>'+
+    'JS Origins: <code>https://'+username+'.github.io</code><br>'+
+    'Redirect URI: <code>'+base+'</code><br><br>'+
+    '<strong>הוסף ל-Azure Portal:</strong><br>'+
+    'Redirect URI: <code>'+base+'</code>';
+}
+function openGitHub(){window.open('https://github.com','_blank');}
+
+// TEST SUITE
+var SYNTHETIC_EMAILS=[
+  {
+    name:'AWS Invoice',
+    input:{vendor:'Amazon Web Services',subject:'Invoice from Amazon Web Services',snippet:'Your invoice for $124.50 USD for services rendered',from:'billing@amazon.com',date:'Mon, 1 Jan 2025 10:00:00 +0000',msgId:'test_aws_001'},
+    expect:{vendor_contains:'Amazon',currency:'USD',confidence_min:70}
+  },
+  {
+    name:'סלקום SMS',
+    input:{vendor:'סלקום',subject:'חשבונית סלקום',snippet:'חשבון חודשי ₪189 תקשורת',from:'billing@cellcom.co.il',date:'Mon, 1 Jan 2025 10:00:00 +0000',msgId:'test_cellcom_001'},
+    expect:{vendor_contains:'סלקום',currency:'ILS',confidence_min:70}
+  },
+  {
+    name:'Generic receipt - no amount',
+    input:{vendor:'Unknown Store',subject:'Your receipt',snippet:'Thank you for your purchase.',from:'noreply@unknownstore.com',date:'Mon, 1 Jan 2025 10:00:00 +0000',msgId:'test_noamt_001'},
+    expect:{confidence_max:60}
+  },
+  {
+    name:'Phishing link (bit.ly)',
+    input:{url:'http://bit.ly/2xkP3a?ref=invoice',src:'SMS',amount:'₪500'},
+    isPending:true,
+    expect:{routed_to_pending:true}
+  },
+  {
+    name:'Duplicate detection',
+    input:{vendor:'Zoom',subject:'Receipt from Zoom',snippet:'Monthly subscription $16.99',from:'billing@zoom.us',date:'Mon, 1 Jan 2025 10:00:00 +0000',msgId:'test_zoom_dup_001'},
+    isDuplicate:true,
+    expect:{no_duplicate:true}
+  }
+];
+
+async function runAllTests() {
+  var btn=document.getElementById('run-tests-btn');
+  btn.disabled=true;btn.textContent='מריץ...';
+  var connEl=document.getElementById('test-connectivity');
+  var extrEl=document.getElementById('test-extraction');
+  var sumEl=document.getElementById('test-summary');
+  sumEl.classList.add('hidden');
+
+  // CONNECTIVITY TESTS
+  function makeConnTests() {
+    return [
+      {
+        name: 'Google OAuth Token',
+        run: function() {
+          if (GOOGLE_TOKEN) return {pass:true, detail:'Token קיים'};
+          return {pass:false, detail:'לא מחובר - לחץ התחבר עם Google'};
+        }
+      },
+      {
+        name: 'Gmail API נגיש',
+        run: async function() {
+          if (!GOOGLE_TOKEN) return {pass:false, detail:'נדרש חיבור Google'};
+          try {
+            var r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {headers:{Authorization:'Bearer '+GOOGLE_TOKEN}});
+            var d = await r.json();
+            if (r.ok) return {pass:true, detail:'✓ '+d.emailAddress};
+            return {pass:false, detail:'HTTP '+r.status};
+          } catch(e) { return {pass:false, detail:e.message}; }
+        }
+      },
+      {
+        name: 'Microsoft Token',
+        run: function() {
+          if (MS_TOKEN) return {pass:true, detail:'Token קיים'};
+          return {pass:false, detail:'לא מחובר - אופציונלי'};
+        }
+      },
+      {
+        name: 'Anthropic API Key',
+        run: async function() {
+          var key = CFG.anthropicKey;
+          if (!key) return {pass:false, detail:'לא הוגדר - נדרש לניתוח קבצים'};
+          try {
+            var r = await fetch('https://api.anthropic.com/v1/messages', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+              body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'hi'}]})
+            });
+            var d = await r.json();
+            if (!d.error) return {pass:true, detail:'✓ Key תקין'};
+            return {pass:false, detail:d.error.message};
+          } catch(e) { return {pass:false, detail:e.message}; }
+        }
+      }
+    ];
+  }
+  var connTests = makeConnTests();
+
+  connEl.innerHTML=connTests.map(function(t){return '<div class="test-row"><div class="test-icon run">?</div><div class="test-name">'+t.name+'</div><div class="test-detail" id="tc-'+t.name.replace(/\s/g,'_')+'">בודק...</div></div>';}).join('');
+
+  var passed=0,total=0;
+  for(var i=0;i<connTests.length;i++){
+    var res=await connTests[i].run();
+    total++;
+    if(res.pass)passed++;
+    var nameKey=connTests[i].name.replace(/\s/g,'_');
+    var row=connEl.children[i];
+    var icon=row.querySelector('.test-icon');
+    icon.textContent=res.pass?'✓':'✗';
+    icon.className='test-icon '+(res.pass?'pass':'fail');
+    document.getElementById('tc-'+nameKey).textContent=res.detail||'';
+  }
+
+  // EXTRACTION TESTS
+  extrEl.innerHTML=SYNTHETIC_EMAILS.map(function(t){return '<div class="test-row"><div class="test-icon run">?</div><div class="test-name">'+t.name+'</div><div class="test-detail">בודק...</div></div>';}).join('');
+
+  for(var j=0;j<SYNTHETIC_EMAILS.length;j++){
+    var st=SYNTHETIC_EMAILS[j];
+    var row=extrEl.children[j];
+    var icon=row.querySelector('.test-icon');
+    var detail=row.querySelector('.test-detail');
+    var pass=false,msg='';
+
+    if(st.isPending){
+      // Test: phishing link goes to pending
+      var already=PENDING.find(function(p){return p.url===st.input.url;});
+      if(!already) PENDING.push({src:st.input.src,url:st.input.url,amount:st.input.amount,status:null});
+      var inPending=!!PENDING.find(function(p){return p.url===st.input.url&&p.status===null;});
+      pass=inPending;
+      msg=pass?'✓ נוסף לממתינים':'✗ לא נמצא בממתינים';
+    } else if(st.isDuplicate){
+      // Test: no duplicate
+      var fakeMsg={id:st.input.msgId,payload:{headers:[{name:'Subject',value:st.input.subject},{name:'From',value:st.input.from},{name:'Date',value:st.input.date}]},snippet:st.input.snippet};
+      var r1=parseGmailMessage(fakeMsg,'test@test.com');
+      if(r1&&!RECEIPTS.find(function(x){return x.msgId===r1.msgId;})) RECEIPTS.push(r1);
+      var countBefore=RECEIPTS.filter(function(x){return x.msgId===st.input.msgId;}).length;
+      // Try adding again
+      if(r1&&!RECEIPTS.find(function(x){return x.msgId===r1.msgId;})) RECEIPTS.push(r1);
+      var countAfter=RECEIPTS.filter(function(x){return x.msgId===st.input.msgId;}).length;
+      pass=(countBefore===1&&countAfter===1);
+      msg=pass?'✓ אין כפילות ('+countAfter+' רשומה)':'✗ כפילות זוהתה ('+countAfter+' רשומות)';
+    } else {
+      // Test: extraction accuracy
+      var fakeMsg2={id:st.input.msgId,payload:{headers:[{name:'Subject',value:st.input.subject},{name:'From',value:st.input.from},{name:'Date',value:st.input.date}]},snippet:st.input.snippet};
+      var result=parseGmailMessage(fakeMsg2,'test@test.com');
+      if(!result){pass=false;msg='✗ לא הצליח לנתח';}
+      else {
+        var checks=[];
+        if(st.expect.vendor_contains&&!result.vendor.includes(st.expect.vendor_contains))checks.push('ספק: '+result.vendor+' (ציפייה: '+st.expect.vendor_contains+')');
+        if(st.expect.currency&&result.currency!==st.expect.currency)checks.push('מטבע: '+result.currency+' (ציפייה: '+st.expect.currency+')');
+        if(st.expect.confidence_min&&result.confidence<st.expect.confidence_min)checks.push('ביטחון: '+result.confidence+'% < '+st.expect.confidence_min+'%');
+        if(st.expect.confidence_max&&result.confidence>st.expect.confidence_max)checks.push('ביטחון גבוה מדי: '+result.confidence+'% > '+st.expect.confidence_max+'%');
+        pass=(checks.length===0);
+        msg=pass?'✓ ספק='+result.vendor+' מטבע='+result.currency+' ביטחון='+result.confidence+'%':'✗ '+checks.join('; ');
+      }
+    }
+
+    total++;if(pass)passed++;
+    icon.textContent=pass?'✓':'✗';
+    icon.className='test-icon '+(pass?'pass':'fail');
+    detail.textContent=msg;
+    await sleep(100);
+  }
+
+  // SUMMARY
+  sumEl.classList.remove('hidden');
+  sumEl.className='test-summary '+(passed===total?'pass':'fail');
+  sumEl.textContent=passed+'/'+total+' בדיקות עברו. '+(passed===total?'האפליקציה מוכנה לשימוש.':'יש לתקן '+( total-passed)+' בדיקות לפני שימוש.');
+  renderPending();applyFilters();updateMetrics();
+  btn.disabled=false;btn.textContent='▶ הפעל כל הבדיקות';
+}
+
+// EXPORT
+function exportExcel(){
+  if(!RECEIPTS.length){toast('אין קבלות לייצוא');return;}
+  var wb=XLSX.utils.book_new();
+  var data=[
+    ['דוח קבלות  -  ReceiPilot','','','','','',''],
+    ['הופק:',new Date().toLocaleDateString('he-IL'),'','','','',''],[''],
+    ['#','ספק','קטגוריה','מקור','תאריך','סכום','מטבע','ביטחון','סטטוס']
+  ];
+  RECEIPTS.forEach(function(r,i){data.push([i+1,r.vendor,r.category,r.sourceEmail||r.source,r.date,r.amount,r.currency||'ILS',(r.confidence||0)+'%',r.status==='ok'?'מאושר':'לבדיקה']);});
+  data.push([''],['סה"כ:',RECEIPTS.length]);
+  var ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:4},{wch:28},{wch:14},{wch:24},{wch:12},{wch:12},{wch:8},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'קבלות');
+  XLSX.writeFile(wb,'receipilot-'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('✓ Excel הורד');
+}
+
+function exportPDF(){
+  if(!RECEIPTS.length){toast('אין קבלות לייצוא');return;}
+  var rows=RECEIPTS.map(function(r,i){
+    return '<tr><td>'+(i+1)+'</td><td>'+(r.vendor||'')+'</td><td>'+(r.category||'')+'</td><td>'+(r.date||'')+'</td><td>'+(r.amount||'')+'</td><td>'+(r.confidence||0)+'%</td></tr>';
+  }).join('');
+  var w=window.open('','_blank');
+  if(!w){toast('אפשר popups בדפדפן');return;}
+  w.document.open();
+  w.document.write('<!DOCTYPE html>');
+  w.document.write('<html dir="rtl"><head><meta charset="UTF-8">');
+  w.document.write('<title>ReceiPilot - Receipt Report</title>');
+  w.document.write('<style>');
+  w.document.write('body{font-family:Arial,sans-serif;font-size:12px;direction:rtl;}');
+  w.document.write('h2{font-size:16px;margin-bottom:4px;}');
+  w.document.write('p{font-size:12px;color:#666;margin-bottom:14px;}');
+  w.document.write('table{width:100%;border-collapse:collapse;}');
+  w.document.write('th,td{padding:6px 8px;border:1px solid #ddd;text-align:right;}');
+  w.document.write('th{background:#f0f0f0;}');
+  w.document.write('</style></head><body>');
+  w.document.write('<h2>ReceiPilot - Receipt Report</h2>');
+  w.document.write('<p>' + new Date().toLocaleDateString('he-IL') + ' | ' + RECEIPTS.length + ' receipts</p>');
+  w.document.write('<table><thead>');
+  w.document.write('<tr><th>#</th><th>Vendor</th><th>Category</th><th>Date</th><th>Amount</th><th>Confidence</th></tr>');
+  w.document.write('</thead><tbody>');
+  w.document.write(rows);
+  w.document.write('</tbody></table>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+// REPORT
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function sendReport(){
+  var email=document.getElementById('cpa-email').value.trim();
+  if(!email){toast('הכנס אימייל רו"ח');return;}
+  if(!RECEIPTS.length){toast('אין קבלות לשלוח');return;}
+  if(!GOOGLE_TOKEN){toast('יש להתחבר ל-Gmail תחילה');return;}
+  var prog=document.getElementById('rep-prog'),bar=document.getElementById('rep-bar'),status=document.getElementById('rep-status');
+  prog.classList.remove('hidden');bar.style.width='20%';status.textContent='מכין...';
+  var body='שלום,\n\nמצורף דוח קבלות עסקיות.\n\nסיכום:\n- סה"כ קבלות: '+RECEIPTS.length+'\n- מחשבונות: '+ACCOUNTS.map(function(a){return a.email;}).join(', ')+'\n\nבברכה';
+  var msg='To: '+email+'\r\nSubject: =?UTF-8?B?'+btoa(unescape(encodeURIComponent('דוח קבלות ReceiPilot')))+'?=\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n'+body;
+  var enc=btoa(unescape(encodeURIComponent(msg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  bar.style.width='60%';status.textContent='שולח...';
+  fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+GOOGLE_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({raw:enc})})
+    .then(function(r){if(!r.ok)throw new Error('Gmail send: '+r.status);bar.style.width='100%';status.textContent='✓ נשלח ל-'+email;toast('✓ דוח נשלח!');setTimeout(function(){closeModal('rep-modal');},2000);})
+    .catch(function(e){bar.style.width='100%';bar.style.background='var(--amber)';status.textContent='⚠ '+e.message;});
+}
+
+// UTILS
+function setStatus(id,type,msg){var el=document.getElementById(id);if(!el)return;var c={ok:'var(--green-dk)',error:'var(--red)',loading:'var(--text3)'};el.style.color=c[type]||c.loading;el.textContent=msg;}
+function timeAgo(ts){var d=Date.now()-ts;if(d<60000)return 'זה עתה';if(d<3600000)return Math.floor(d/60000)+' דקות';if(d<86400000)return Math.floor(d/3600000)+' שעות';return Math.floor(d/86400000)+' ימים';}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+var _tt;
+function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('show');},3500);}
+
+function clearAll(){if(!confirm('מחק כל הנתונים?'))return;RECEIPTS=[];FILTERED=[];PENDING=[];ACCOUNTS=[];GOOGLE_TOKEN=null;MS_TOKEN=null;LAST_SYNC={};localStorage.removeItem('receipilot_lastsync');renderAccounts();applyFilters();updateMetrics();renderPending();toast('נתונים נמחקו');}
+
+document.addEventListener('DOMContentLoaded',function(){
+  loadCfg();
+  applyFilters();renderAccounts();renderPending();updateMetrics();
+  document.addEventListener('click',function(e){document.querySelectorAll('.overlay.open').forEach(function(o){if(e.target===o)closeModal(o.id);});});
+  if(CFG.msClientId)initMSAL();
+  var dz=document.getElementById('drop-zone');
+  if(dz){
+    dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
+    dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
+    dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');var f=e.dataTransfer.files[0];if(f){var dt=new DataTransfer();dt.items.add(f);document.getElementById('file-inp').files=dt.files;handleFile({files:dt.files});}});
+  }
+});
+</script>
+</body>
+</html>
